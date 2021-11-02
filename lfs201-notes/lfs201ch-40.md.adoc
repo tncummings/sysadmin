@@ -1,0 +1,425 @@
+:doctype: book
+
+Chapter 40 - Backup and Recovery Methods
+
+= Chapter 40 - Backup and Recovery Methods
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Identify and prioritize data that needs backup.
+* Employ different kinds of backup methods, depending on the situation.
+* Establish efficient backup and restore strategies.
+* Use different backup utilities, such as cpio, tar, gzip, bzip2, xz, dd, and rsync.
+* Describe the two most well-known backup programs, Amanda and Bacula.
+
+== Why Backups?
+
+Whether you are administering only one personal system or a network of many machines, system backups are very important.
+
+=== Data is valuable
+
+On-disk data is an important work product and is therefore a commodity that we wish to protect.
+Recreating lost data costs time and money.
+Some data may even be unique and there may be no way to recreate it.
+
+=== Hardware fails
+
+While storage media reliability has increased, so has drive capacity.
+Even if the failure rate per byte decreases, unpredictable failures still occur.
+It may be pessimistic to say there are only two kinds of drives: those that have failed and those that will fail, but it is essentially true.
+Using RAID helps, but backups are still needed.
+
+=== Software fails
+
+No software is perfect.
+Bugs may destroy or corrupt data.
+Even stable programs long in use can have problems.
+
+=== People make mistakes
+
+Everyone has heard OOPS!
+(or something much worse) coming from the next cubicle (or from their own mouth) at one time or another.
+Sometimes, just a simple typing error can cause large scale destruction of files and data.
+
+=== Malicious people can cause deliberate damage
+
+It could be the canonical disgruntled employee or an external hacker with a point to make.
+Security concerns and backup capabilities are very strongly related.
+
+=== Unexplained events happen
+
+Files can just disappear without you knowing how, who, or even when it occurred.
+
+=== Rewinds can be useful
+
+Sometimes, restoring to an earlier snapshot of all or part of the system may be required.
+
+== What Needs Backup?
+
+Some data is critical for backup, some less critical, and some never needs saving.
+
+=== Definitely yes
+
+The following data should always be backed up: - Business-related data - System configuration files - User files (usually under /home)
+
+=== Maybe
+
+* Spooling directories (for printing, mail, etc.)
+* Logging files (found in /var/log, and elsewhere)
+
+=== Probably not
+
+* Software that can easily be re-installed;
+on a well-managed system, this should be almost everything
+* The /tmp directory, because its contents are indeed supposed to be only temporary
+
+=== Definitely not
+
+* Pseudo-filesystems such as /proc, /dev and /sys
+* Any swap partitions or files
+
+Obviously, files essential to your organization require backup.
+Configuration files may change frequently, and along with individual user's files, require backup as well.
+
+Logging files can be important if you have to investigate your system's history, which can be particularly important for detecting intrusions and other security violations.
+
+You don't have to back up anything that can easily be re-installed.
+Also, the swap partitions (or files) and /proc filesystems are generally not useful or necessary to backup, since the data in these areas is basically temporary (just like in the /tmp directory).
+
+== Backup vs. Archive
+
+All backup media have a finite lifetime before becoming unreadable.
+The conventional estimates are listed below:
+
+* Magnetic Tapes: 10-30 years
+* CDs and DVDs: 3-10 years
+* Hard Disks: 2-5 years.
+
+Lifetime is very sensitive to:
+
+* Environmental conditions (temperature, humidity, etc.)
+* Quality of media
+* Having working software that can read data on current operating systems and hardware.
+
+Lifetime is sufficient for backup, but not for permanent digital archiving.
+
+For lifetimes longer than the usual backup timescales, data can be preserved using multiple copies, plus copying over to newer media from time to time.
+
+For very long times (i.e., many decades, centuries, etc.), standard methods do not work easily, as everything can go obsolete: hardware, software and document format, media.
+
+None of the inexpensive digital formats can actually compete with paper and film for long periods of time (if they are properly stored and continuously cared for - like wine).
+
+This is a problem serious people think about and there should be good solutions available before all is lost.
+
+== Tape Drives
+
+Tape drives are not as common as they used to be.
+They are relatively slow and permit only sequential access.
+On any modern setup, they are rarely used for primary backup.
+They are sometimes used for off-site storage for archival purposes, for long time reference.
+However, magnetic tape drives always have only a finite lifetime without physical degradation and loss of data.
+
+Modern tape drives are usually of the LTO (Linear Tape Open) variety, whose first versions appeared in the late 1990s as an open standards alternative;
+early formats were mostly proprietary.
+Early versions held up to 100 GB;
+newer versions can hold 2.5 TB or more in a cartridge of the same size.
+
+Day-to-day backups are usually done with some form of NAS (Network Attached Storage) or with cloud-based solutions, making new tape-based installations less and less attractive.
+However, they can still be found, and system administrators may be required to deal with them.
+
+In what follows, we will try not to focus on particular physical forms for the backup media, and will speak more abstractly.
+
+== Backup Methods
+
+You should never have all backups residing in the same physical location as the systems being protected.
+Otherwise, fire or other physical damage could lead to a total loss.
+In the past, this usually meant physically transporting magnetic tapes to a secure location.
+Today, this is more likely to mean transferring backup files over the Internet to alternative physical locations.
+Obviously, this has to be done in a secure way, using encryption and other security precautions as is appropriate.
+
+Several different kinds of backup methods can be used, often in concert with each other.
+
+*_Full_*: Backup for all files on the system.
+*_Incremental_*: Backup for all files that have changed since the last incremental or full backup.
+*_Differential_*: Backup for all files that have changed since the last full backup.
+*_Multi-level Incremental_*: Backup for all files that have changed since the previous backup at the same or a previous level.
+*_User_*: Backups only for files in a specific user's directory.
+
+== Backup Strategies
+
+We should note that backup methods are useless without associated *restore* methods.
+You have to take into account the robustness, clarity and ease of both directions when selecting strategies.
+
+The simplest backup scheme is to do a full backup of everything once, and then perform incremental backups of everything that subsequently changes.
+While full backups can take a lot of time, restoring from incremental backups can be more difficult and time consuming.
+Thus, you can use a mix of both to optimize time and effort.
+
+An example of one useful strategy involving tapes (you can easily substitute other media in the description):
+
+* Use tape 1 for a full backup on Friday.
+* Use tapes 2-5 for incremental backups on Monday-Thursday.
+* Use tape 6 for full backup on second Friday.
+* Use tapes 2-5 for incremental backups on second Monday-Thursday.
+* Do not overwrite tape 1 until completion of full backup on tape 6.
+* After full backup to tape 6, move tape 1 to external location for disaster recovery.
+* For next full backup (next Friday) get tape 1 and exchange for tape 6.
+
+A good rule of thumb is to have at least two weeks of backups available.
+
+== Some Backup Related Utilities
+
+A number of programs are used for backup purposes.
+*_cpio and tar_*: cpio and tar create and extract archives of files.
+
+*_gzip, bzip2, and xz_*: The archives are often compressed with gzip, bzip2, or xz.
+The archive file may be written to disk, magnetic tape, or any other device which can hold files.
+Archives are very useful for transferring files from one filesystem or machine to another.
+
+*_dd_*: This powerful utility is often used to transfer raw data between media.
+It can copy entire partitions or entire disks.
+
+*_rsync_*: This powerful utility can synchronize directory subtrees or entire filesystems across a network, or between different filesystem locations on a local machine.
+
+*_dump and restore_*: These ancient utilities were designed specifically for backups.
+They read from the filesystem directly (which is more efficient).
+However, they must be restored only on the same filesystem type that they came from.
+There are newer alternatives.
+
+*_mt_*: This utility is useful for querying and positioning tapes before performing backups and restores.
+
+== Using tar for Backups
+
+tar is easy to use:
+
+* When creating a tar archive, for each directory given as an argument, all files and subdirectories will be included in the archive
+* When restoring, it reconstitutes directories as necessary
+* It even has a --newer option that lets you do incremental backups
+* The version of tar used in Linux can also handle backups that do not fit on one tape or whatever device you use.
+
+Below are a few examples of how to use tar for backups.
+
+Create an archive using -c or just c:
+
+`$ tar cvf  /dev/st0 /root` `$ tar -cvf /dev/st0 /root`
+
+Create with multi-volume option, using -M:
+
+`$ tar -cMf /dev/st0 /root`
+
+You will be prompted to put the next tape when needed.
+
+Verify files with the compare option, using -d or --compare:
+
+`$ tar --compare --verbose --file /dev/st0` `$ tar -dvf /dev/st0`
+
+You can also specify a device or file with the -f or --file option.
+
+After you make a backup, you can make sure that it is complete and correct using the above verification option.
+
+By default, tar will recursively include all subdirectories in the archive.
+
+When you create an archive, tar prints a message about removing leading slashes from the absolute path name.
+While this allows you to restore the files anywhere, the default behavior can be modified.
+
+Most tar options can be given in short form with one dash, or long form with two: -c is completely equivalent to --create.
+Also note that you can combine options (when using the short notation), so that you don't have to type every dash.
+
+Furthermore, single-dashed tar options can be used with or without dashes:
+
+`$ tar cvf file.tar dir1`
+
+has the same result as
+
+`$ tar -cvf file.tar dir1`
+
+== Using tar for Restoring Files
+
+The -x or --extract option extracts files from an archive, all by default.
+You can narrow the file extraction list by specifying only particular files.
+If a directory is specified, all included files and subdirectories are also extracted.
+
+The -p or --same-permissions options ensures files are restores with their original permissions.
+
+The -t or --list option lists, but does not extract, the files in the archive.
+
+You can see several examples below.
+
+Extract from an archive:
+
+`$ tar --extract --same-permissions --verbose --file /dev/st0` `$ tar -xpvf /dev/st0` `$ tar  xpvf /dev/st0`
+
+Specify only specific files to restore:
+
+`$ tar xvf /dev/st0 somefile`
+
+List the contents of a tar backup:
+
+`$ tar --list --file /dev/st0` `$ tar -tf /dev/st0`
+
+== Incremental Backups with tar
+
+You can do an incremental backup with tar using the -N (or the equivalent --newer), or the --after-date options.
+Either option requires specifying either a date or a qualified (reference) file name:
+
+`$ tar --create --newer '2011-12-1' -vzf backup1.tgz /var/tmp` `$ tar --create --after-date '2011-12-1' -vzf backup1.tgz /var/tmp`
+
+Either form creates a backup archive of all files in /var/tmp which were modified after December 1, 2011.
+
+Because tar only looks at a file's date, it does not consider any other changes to the file, such as permissions or file name.
+To include files with these changes in the incremental backup, use find and create a list of files to be backed up.
+image:../../_resources/c131ee9cd9724eb7a1a8f458d52b0be8.png[4f55e685faa176988e146d139ddf025a.png]
+
+== Archive Compression Methods
+
+It is often desired to compress files to save disk space and/or network transmission time, especially since modern machines will often find the compress \-> transmit \-> decompress cycle faster than just transmitting (or copying) an uncompressed file.
+
+In order to increase compression efficiency (which comes at the cost of longer compression times):
+
+*_gzip_*: Uses Lempel-Ziv Coding (LZ77) and produces .gz files.
+
+*_bzip2_*: Uses Burrows-Wheeler block sorting text compression algorithm and Huffman coding, and produces .bz2 files.
+*_xz_*: Produces .xz files and also supports legacy .lzma format.
+
+For example, The Linux Kernel Archives only uses xz format now for downloading Linux kernels.
+
+The compression utilities are very easily (and often) used in combination with tar:
+
+`$ tar zcvf source.tar.gz source` `$ tar jcvf source.tar.bz2 source` `$ tar Jcvf source.tar.xz source`
+
+for producing a compressed archive.
+Note that the first command has the exact same effect as doing:
+
+`$ tar cvf source.tar source ; gzip -v source.tar`
+
+but is more efficient because:
+
+* There is no intermediate file storage.
+* Archiving and compression happen simultaneously in the pipeline.
+
+For decompression:
+
+`$ tar xzvf source.tar.gz` `$ tar xjvf source.tar.bz2` `$ tar xJvf source.tar.xz`
+
+or even simpler:
+
+`$ tar xvf source.tar.gz`
+
+as modern versions of tar can sense the method of compression and take care of it automatically.
+
+Obviously, it is not worth using these methods on archives whose component files are already compressed, such as .jpg images, or .pdf files, etc.
+
+== dd
+
+dd is a common UNIX-based program whose primary purpose is the low-level copying and conversion of raw data.
+It is used to copy a specified number of bytes or blocks, performing on-the-fly byte order conversions, as well as being able to convert data from one form to another.
+It can also be used to copy regions of raw device files, for example backing up the boot sector of a hard disk, or to read fixed amounts of data from special files like /dev/zero or /dev/random.
+The basic syntax is:
+
+`$ dd if=input-file of=output-file options`
+
+Below are some examples of using dd.
+
+Create a file:
+
+`$ dd if=/dev/zero of=outfile bs=1M count=10`
+
+Back up an entire hard drive to another:
+
+`$ dd if=/dev/sda of=/dev/sdb`
+
+Create an image of a hard disk:
+
+`$ dd if=/dev/sda of=sdadisk.img`
+
+Back up a partition:
+
+`$ dd if=/dev/sda1 of=partition1.img`
+
+Back up a CD ROM:
+
+`$ dd if=/dev/cdrom of=tgsservice.iso bs=2048`
+
+== Using rsync for Backups
+
+rsync (remote synchronize) is used to transfer files across a network (or between different locations on the same machine), as in:
+
+`$ rsync [options] sourcefile destinationfile`
+
+The source and destination can take the form of target:path, where target can be in the form of [user@]host.
+The user@ part is optional and used if the remote user is different from the local user.
+Thus, these are all possible rsync commands:
+
+`$ rsync file.tar someone@backup.mydomain:/usr/local` `$ rsync -r --dry-run /usr/local /BACKUP/usr`
+
+You have to be very careful with rsync about exact location specifications (especially if you use the --delete option), so it is highly recommended to use the --dry-run option first, and then repeat if the projected action looks correct.
+
+rsync is very clever;
+it checks local files against remote files in small chunks, and it is very efficient in that when copying one directory to a similar directory, only the differences are copied over the network.
+This synchronizes the second directory with the first directory.
+You may often use the -r option, which causes rsync to recursively walk down the directory tree copying all files and directories below the one listed as the sourcefile.
+Thus, a very useful way to back up a project directory might be similar to:
+
+`$ rsync -r project-X archive-machine:archives/project-X`
+
+A simple (and very effective and very fast) backup strategy is to simply duplicate directories or partitions across a network with rsync commands and to do so frequently.
+
+== Using cpio for Backups
+
+cpio (copy in and out) is a general file archiver utility that has been around since the earliest days of UNIX and was originally designed for tape backups.
+Even though newer archiving programs (like tar, which is not exactly young) have been deployed to do many of the tasks that were once in the domain of cpio, it still survives.
+
+For example, we have already seen the use of rpm2cpio to convert RPM packages into cpio archives and then extract them.
+Also, the Linux kernel uses a version of cpio internally to deal with initramfs and initrd initial ram filesystems and disks during boot.
+One reason cpio lives on is that it is lighter than tar and other successors, even if it is somewhat less robust.
+
+You can specify the input (-I device) or output (-O) or use redirection on the command line.
+
+The -o or --create option tells cpio to copy files out to an archive.
+cpio reads a list of file names (one per line) from standard input and writes the archive to standard output.
+
+The -i or --extract option tells cpio to copy files from an archive, reading the archive from standard input.
+If you list file names as patterns (such as *.c) on the command line, only files in the archive that match the patterns are copied from the archive.
+If no patterns are given, all files are extracted.
+
+The -t or --list option tells cpio to list the archive contents.
+Adding the -v or --verbose option generates a long listing.
+
+You can see some examples of using cpio below.
+
+Create an archive, use -o or --create:
+
+`$ ls | cpio --create -O /dev/st0`
+
+Extract from an archive, use -i or --extract:
+
+`$ cpio -i somefile -I /dev/st0`
+
+List contents of an archive, use -t or --list:
+
+`$ cpio -t -I /dev/st0`
+
+== Backup Programs
+
+There is no shortage of available backup program suites available for Linux, including proprietary applications or those supplied by storage vendors, as well as open-source applications.
+
+*_Amanda_*: Amanda (Advanced Maryland Automatic Network Disk Archiver) uses native utilities (including tar and dump) but is far more robust and controllable.
+Amanda is generally available on Enterprise Linux systems through the usual repositories.
+
+*_Bacula_*: Bacula is designed for automatic backup on heterogenous networks.
+It can be rather complicated to use and is recommended (by its authors) only to experienced administrators.
+Bacula is generally available on Enterprise Linux systems through the usual repositories.
+
+*_Clonezilla_*: Clonezilla is a very robust disk cloning program, which can make images of disks and deploy them, either to restore a backup, or to be used for ghosting, to provide an image that can be used to install many machines.
+
+The program comes in two versions: Clonezilla Live, which is good for single machine backup and recovery, and Clonezilla SE, server edition, which can clone to many computers at the same time.
+Clonezilla is not very hard to use and is extremely flexible, supporting many operating systems (not just Linux), filesystem types, and boot loaders.
+
+== Exercise 40.1: Using tar for Backup
+
+. Create a directory called backup and in it place a compressed tar archive of all the files under `/usr/include`, with the highest level directory being include.
+You can use any compression method (gzip, bzip2 or xzip).
+. List the files in the archive.
+. Create a directory called restore and unpack and decompress the archive.
+. Compare the contents with the original directory the archive was made from.

@@ -1,0 +1,19 @@
+= Shamelessly Forked from Someone Else: Sysadmin is a git repository of various Linux and sysadmin resources.
+
+== My Notes in Git-flavored AsciiDoc
+ifdef::env-github[]
+:imagesdir:https://gist.githubusercontent.com/path/to/gist/revision/dir/with/all/images
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+ifndef::env-github[]
+:imagesdir: ./
+endif::[]
+:toc:
+:toc-placement!:
+
+== Sysadmin
+

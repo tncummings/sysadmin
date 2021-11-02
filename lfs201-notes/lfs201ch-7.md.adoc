@@ -1,0 +1,175 @@
+:doctype: book
+
+Chapter_7__-_Debian_Package_Manager__(dpkg)
+
+= Chapter 7 - Debian Package Manager (dpkg)
+
+Created Wednesday 27 January 2021
+
+[discrete]
+=== Chapter 7 Introduction
+
+The Debian Package Manager (DPKG) is used by all Debian-based distributions to control the installation, verification, upgrade, and removal of software on Linux systems.
+The low-level dpkg program can perform all these operations, either on just one package, or on a list of packages.
+Operations which would cause problems (such as removing a package that another package depends on, or installing a package when the system needs other software to be installed first) are blocked from completion.
+
+[discrete]
+=== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Discuss the DPKG packaging system and its uses.
+* Explain the naming conventions used for both binary and source deb files.
+* Know what source packages look like.
+* Use querying and verifying operations on packages.
+* Install, upgrade, and uninstall Debian packages.
+
+[discrete]
+=== DPKG Essentials
+
+DPKG (Debian Package) is the packaging system used to install, remove, and manage software packages under Debian Linux and other distributions derived from it.
+Like RPM, it is not designed to directly retrieve packages in day-to-day use, but to install and remove them locally.
+
+Package files have a .deb suffix and the DPKG database resides in the `/var/lib/dpkg` directory.
+
+Like rpm, the dpkg program has only a partial view of the universe: it knows only what is installed on the system, and whatever it is given on the command line, but knows nothing of the other available packages, whether they are in some other directory on the system, or out on the Internet.
+As such, it will also fail if a dependency is not met, or if one tries to remove a package other installed packages need.
+
+[discrete]
+=== Package File Names and Source
+
+Debian package file names are based on fields that represent specific information.
+The standard naming format for a binary package is:
+
+`<name>_<version>-<revision_number>_<architecture>.deb`
+
+as in:
+
+`logrotate_3.14.0-4_amd64.deb`
+
+on Debian, and
+
+`logrotate_3.14.0-4ubuntu3_amd64.deb`
+
+on Ubuntu.
+For historical reasons, the 64-bit x86 platform is called amd64 rather than x86_64, and distributors such as Ubuntu manage to insert their name in the package name.
+
+//In the Debian packaging system, a source package consists of at least three files://
+
+. An upstream tarball, ending with .tar.gz.
+This is the unmodified source as it comes from the package maintainers.
+. A description file, ending with .dsc, containing the package name and other metadata, such as architecture and dependencies.
+. A second tarball that contains any patches to the upstream source, and additional files created for the package, and ends with a name .debian.tar.gz or .diff.gz, depending on distribution.
+
+For example, on a Ubuntu system, one can download a source package, and then see what files are downloaded or created, as seen below.
+
+ tom@aur6a:~/lft-temp$ apt-get source logrotate
+ Reading package lists... Done
+ NOTICE: 'logrotate' packaging is maintained in the 'Git' version control system at:
+ https://salsa.debian.org/debian/logrotate.git
+ Please use:
+ git clone https://salsa.debian.org/debian/logrotate.git
+ to retrieve the latest (possibly unreleased) updates to the package.
+ Need to get 178 kB of source archives.
+ Get:1 http://us.archive.ubuntu.com/ubuntu focal/main logrotate 3.14.0-4ubuntu3 (dsc) [1,742 B]
+ Get:2 http://us.archive.ubuntu.com/ubuntu focal/main logrotate 3.14.0-4ubuntu3 (tar) [156 kB]
+ Get:3 http://us.archive.ubuntu.com/ubuntu focal/main logrotate 3.14.0-4ubuntu3 (diff) [20.3 kB]
+ Fetched 178 kB in 0s (430 kB/s)
+ dpkg-source: info: extracting logrotate in logrotate-3.14.0
+ dpkg-source: info: unpacking logrotate_3.14.0.orig.tar.xz
+ dpkg-source: info: unpacking logrotate_3.14.0-4ubuntu3.debian.tar.xz
+ dpkg-source: info: using patch list from debian/patches/series
+ dpkg-source: info: applying 0003-fix-spelling.patch
+ dpkg-source: info: applying 0004-btmp-config-allow-rw-group-access.patch
+ dpkg-source: info: applying 0007-skip-cronjob-when-running-with-systemd.patch
+ dpkg-source: info: applying 0008-fix-test-pagesize.patch
+ dpkg-source: info: applying 0009-drop-MemoryDenyWriteExecute-from-systemd-service.patch
+ tom@aur6a:~/lft-temp$ ls
+ logrotate-3.14.0                         logrotate_3.14.0-4ubuntu3.dsc
+ logrotate_3.14.0-4ubuntu3.debian.tar.xz  logrotate_3.14.0.orig.tar.xz
+ tom@aur6a:~/lft-temp$ du -shc logrotate*
+ 1.8M	logrotate-3.14.0
+ 20K	logrotate_3.14.0-4ubuntu3.debian.tar.xz
+ 4.0K	logrotate_3.14.0-4ubuntu3.dsc
+ 156K	logrotate_3.14.0.orig.tar.xz
+ 2.0M	total
+ tom@aur6a:~/lft-temp$
+
+[discrete]
+=== DPKG Queries
+
+Let's take a look at some examples of queries you can make.
+
+List all packages installed:
+
+`$ dpkg -l`
+
+You can also specify a package name.
+
+List files installed in the wget package:
+
+`$ dpkg -L wget`
+
+Show information about an installed package:
+
+`$ dpkg -p wget`
+
+Show information about a package file:
+
+`$ dpkg -I webfs_1.21+ds1-8_amd64.deb`
+
+List files in a package file:
+
+`$ dpkg -c webfs_1.21+ds1-8_amd64.deb`
+
+Show what package owns /etc/init/networking.conf:
+
+`$ dpkg -S /etc/init/networking.conf`
+
+Show the status of a package:
+
+`$ dpkg -s wget`
+
+Verify the installed package's integrity:
+
+`$ dpkg -V package`
+
+[discrete]
+=== Installing/Upgrading/Uninstalling Packages with dpkg
+
+The command:
+
+`$ sudo dpkg -i foobar.deb`
+
+would be used for either installing or upgrading the foobar package.
+
+If the package is not currently installed, then it will be installed.
+If the package is newer than the one currently installed, then it will be upgraded.
+
+The command:
+
+`$ sudo dpkg -r package`
+
+is used to remove all of an installed package except for its configuration files.
+The command:
+
+`$ sudo dpkg -P package`
+
+is used to remove all of an installed package, including its configuration files.
+Note that -P stands for purge.
+
+[discrete]
+=== Lab 7.1. Using dpkg
+
+Here we will just do a number of simple operations for querying and verifying Debian packages.
+
+. Find out what package the file link:file:///etc/logrotate.conf[/etc/logrotate.conf] belongs to.
+. List information about the package including all the files it contains.
+. Verify the package installation.
+. Try to remove the package.
++
+ubuntu@ip-172-31-21-230:~$ dpkg -S /etc/logrotate.conf  logrotate: /etc/logrotate.conf  ubuntu@ip-172-31-21-230:~$ dpkg -L logrotate  /.
+/etc  /etc/cron.daily  /etc/cron.daily/logrotate  /etc/logrotate.conf  /etc/logrotate.d  /etc/logrotate.d/btmp  /etc/logrotate.d/wtmp  /lib  /lib/systemd  /lib/systemd/system  /lib/systemd/system/logrotate.service  /lib/systemd/system/logrotate.timer  /usr  /usr/sbin  /usr/sbin/logrotate  /usr/share  /usr/share/bug  /usr/share/bug/logrotate  /usr/share/bug/logrotate/script  /usr/share/doc  /usr/share/doc/logrotate  /usr/share/doc/logrotate/NEWS.Debian.gz  /usr/share/doc/logrotate/changelog.Debian.gz  /usr/share/doc/logrotate/copyright  /usr/share/man  /usr/share/man/man5  /usr/share/man/man8  /usr/share/man/man8/logrotate.8.gz  /var  /var/lib  /var/lib/logrotate  /usr/share/man/man5/logrotate.conf.5.gz  ubuntu@ip-172-31-21-230:~$ dpkg -V logrotate  ubuntu@ip-172-31-21-230:~$ dpkg -r logrotate  dpkg: error: requested operation requires superuser privilege  ubuntu@ip-172-31-21-230:~$ sudo dpkg -r logrotate  dpkg: dependency problems prevent removal of logrotate:   ubuntu-standard depends on logrotate;
+however:    Package logrotate is to be removed.
++
+dpkg: error processing package logrotate (--remove):   dependency problems - not removing  Errors were encountered while processing:   logrotate  ubuntu@ip-172-31-21-230:~$

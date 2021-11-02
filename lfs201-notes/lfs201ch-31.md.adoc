@@ -1,0 +1,134 @@
+:doctype: book
+
+Chapter 31 - Group Management
+
+= Chapter 31 - Group Management
+
+== Chapter 31 Introduction
+
+Linux systems form collections of users called groups, whose members share some common purpose.
+To further that end, they share certain files and directories and maintain some common privileges;
+this separates them from others on the system, sometimes collectively called the world.
+Using groups aids collaborative projects enormously.
+
+Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain why it is useful to have Linux users belong to one or more groups.
+* Use utilities such as `groupadd`, `groupdel`, `groupmod`, and `usermod` to create, remove and manipulate groups and their membership.
+* Describe User Private Groups.
+* Explain the concept of group membership.
+
+== Groups
+
+Linux systems form collections of users called groups, whose members share some common purpose.
+To further that end, they share certain files and directories, and maintain some common privileges;
+this separates them from others on the system, sometimes collectively called the world.
+Using groups aids collaborative projects enormously.
+Users belong to one or more groups.
+
+Groups are defined in `/etc/group`, which has the same role for groups as `/etc/passwd` has for users.
+Each line of the file looks like:
+
+`+groupname:password:GID:user1,user2,...+`
+
+where:
+
+* groupname is the name of the group
+* password is the password place holder.
+Group passwords may be set, but only if `/etc/gshadow` exists
+* GID is the group identifier.
+Values between 0 and 99 are for system groups.
+Values between 100 and GID_MIN (as defined in `/etc/login.defs` and usually the same as UID_MIN) are considered special.
+Values over GID_MIN are for UPG (User Private Groups)
+* user1,user2,\...
+is a comma-separated list of users who are members of the group.
+The user need not be listed here if this group is the user's principal group.
+
+== Group Management
+
+Group accounts may be managed and maintained with:
+
+* `groupadd`: Add a new group.
+* `groupmod`: Modify a group and add new users.
+* `groupdel`: Remove a group.
+* `usermod`: Manage a user's group memberships.
+
+These group manipulation utilities modify `/etc/group` and (if it exists) `/etc/gshadow`, and may only be executed by root.
+Examples:
+
+`$ sudo groupadd -r -g 215 staff` `$ sudo groupmod -g 101 blah` `$ sudo groupdel newgroup` *`$ sudo usermod -G student,group1,group2 student`*
+
+*NOTE*: Be very careful with the usermod -G command;
+the group list that follows is the complete list of groups, not just the changes.
+Any supplemental groups left out will be gone!
+Non-destructive use should utilize the -a option, which will preserve pre-existing group memberships when adding new ones.
+
+== User Private Groups
+
+Linux uses User Private Groups (UPG).
+
+The idea behind UPGs is that each user will have his or her own group.
+However, UPGs are not guaranteed to be private;
+additional members may be added to someone's private group in `/etc/group`.
+
+By default, users whose accounts are created with useradd have: primary GID = UID and the group name is also identical to the user name.
+
+As specified in `/etc/profile`, the `umask` is set to 002 for all users created with UPG.
+Under this scheme, user files are thus created with permissions 664 (rw-rw-r--) and directories with 775 (rwxrwxr-x).
+We will discuss `umask` in the next section.
+
+== Group Membership
+
+A Linux user has one primary group;
+this is listed in `/etc/passwd` and will also be listed in `/etc/group`.
+A user may belong to between 0 and 15 secondary groups.
+
+The primary group is the GID that is used whenever the user creates files or directories.
+Membership in other, secondary, groups grants the user additional permissions.
+
+Group membership can be identified by running either of the following commands:
+
+`+$ groups [user1 user2 ...]+` `+$ id -Gn [user1 user2 ...]+`
+
+With no arguments, either command reports on the current user.
+Note that the default groups can differ by distribution:
+
+On CentOs:
+
+` [student@CentOS7 ~]$ groups student `
+
+On Ubuntu:
+
+`student@ubuntu:~$ groups` `student adm cdrom sudo dip plugdev lpadmin sambashare libvirt`
+
+== Lab 31.1: Working with Groups
+
+. Create two new user accounts (rocky and bullwinkle in the below) and make sure they have home directories.
+. Create two new groups, friends and bosses (with a GID of 490).
+Look at `/etc/group` .  See what GID was given to each new group.
+. Add rocky to both new groups.
+Add bullwinkle to group friends.
+Look in `/etc/group` to see how it changed.
+. Login as rocky.
+Create a directory called somedir and set the group ownership to bosses.
+(Using `chgrp` which will be discussed in the next session.) (You will probably need to add execute privileges for all on rocky's home directory.)
+. Login as bullwinkle and try to create a file in `/home/rocky/somedir` called somefile using the touch command.
+Can you do this?
+No, because of the group ownership and the `chmod a+x` on the directory.
+. Add bullwinkle to the bosses group and try again.
+Note you will have to log out and log back in again for the new group membership to be effective.
+do the following:
+
+Solution 31.1 1.
+`$ sudo useradd -m rocky` $ `sudo useradd -m bullwinkle` `$ sudo passwd rocky` ` Enter new UNIX password: Retype new UNIX password: passwd: password updated successfully ` `$ sudo passwd bullwinkle` ` Enter new UNIX password: Retype new UNIX password: passwd: password updated successfully ` `$ ls -l /home` ` total 12 drwxr-xr-x  2 bullwinkle bullwinkle 4096 Oct 30 09:39 bullwinkle drwxr-xr-x  2 rocky      rocky      4096 Oct 30 09:39 rocky drwxr-xr-x 20 student    student    4096 Oct 30 09:18 student `
+
+2.`$ sudo groupadd friends` $ `sudo groupadd -g 490 bosses` $ `grep -e friends -e bosses /etc/group` ` friends:x:1003: bosses:x:490: `
+
+. `$ sudo usermod -G friends,bosses rocky` `$ sudo usermod -G friends bullwinkle` `$ grep -e rocky -e bullwinkle /etc/group` ` rocky:x:1001: bullwinkle:x:1002: friends:x:1003:rocky,bullwinkle bosses:x:490:rocky $ groups rocky bullwinkle rocky : rocky friends bosses bullwinkle : bullwinkle friends `
+. `$ ssh rocky@localhost` `$ cd  ̃`` `$ mkdir somedir`` ``$ chgrp bosses somedir`` ``$ ls -l`` ```+ total 16 -rw-r--r-- 1 rocky rocky  8980 Oct  4  2013 examples.desktop drwxrwxr-x 2 rocky bosses 4096 Oct 30 09:53 somedir +`` `$ chmod a+x` .
+. `$ ssh bullwinkle@localhost` `$ touch /home/rocky/somedir/somefile` `touch: cannot touch /home/rocky/somedir/somefile: Permission denied` `$ exit`
+. `$ sudo usermod -a -G bosses bullwinkle` `$ ssh bullwinkle@localhost` `$ touch /home/rocky/somedir/somefile` `$ ls -al /home/rocky/somedir` (note ownership of files)
+
+*MY NOTES*: I had to further modify group privileges to rwx (770) for the directory to be able to write to it.

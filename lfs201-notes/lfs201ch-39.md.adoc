@@ -1,0 +1,171 @@
+:doctype: book
+
+Chapter 39 - System Init: SystemD, SystemV and Upstart
+
+= Chapter 39 - System Init: SystemD, SystemV and Upstart
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Understand the importance of the init process.
+* Understand how systemd (and Upstart) arose and how they work.
+* Use systemctl to configure and control systemd.
+
+== The init Process
+
+`/sbin/init` (usually just called init) is the first user-level process (or task) run on the system and continues to run until the system is shutdown.
+Traditionally, it has been considered the parent of all user processes, although technically that is not true, as some processes are started directly by the kernel.
+
+init coordinates the later stages of the boot process, configures all aspects of the environment, and starts the processes needed for logging into the system.
+init also works closely with the kernel in cleaning up after processes when they terminate.
+
+Traditionally, nearly all distributions based the init process on UNIX's venerable SysVinit' software.
+However, this scheme was developed decades ago under rather different circumstances:
+
+* The target was multi-user mainframe systems (and not personal computers, laptops, and other devices)
+* The target was a single processor system
+* Startup (and shutdown) time was not an important matter;
+it was far less important than getting things right.
+
+Startup was viewed as a serial process, divided into a series of sequential stages (termed run levels).
+Each stage required completion before the next could proceed.
+Thus, startup did not easily take advantage of the parallel processing that could be done on multiple processors or cores.
+
+Secondly, shutdown/reboot was seen as a relatively rare event, and exactly how long it took was not considered important;
+today Linux systems usually boot in a manner of seconds.
+
+Three most common implementations include systemd, Upstart and SysVinit, but all major distributions have now moved to systemd.
+
+Modern systems have required newer methods with enhanced capabilities.
+
+== Startup Alternatives
+
+To deal with the intrinsic limitations in SysVinit, new methods of controlling system startup were developed.
+While there are others, two main schemes were adopted by Enterprise distributors, Upstart and systemd.
+
+=== Upstart
+
+* Developed by Ubuntu and first included in 2006.
+* Adopted in Fedora 9 (in 2008) and in RHEL 6 and its clones.
+* Was also used in various embedded and mobile devices.
+
+=== systemd
+
+* Fedora was the first major distribution to adopt it in 2011.
+* RHEL and SUSE followed.
+* Ubuntu 16.04 replaced Upstart with systemd.
+* All important Linux distributions are now based on systemd.
+
+Migration to systemd was non-trivial and bugs and missing features could be very disabling, so essential compatibility layers were adopted and still exist for legacy software.
+Thus, SysVinit utility compatibility wrappers still persist.
+
+The history of systemd development and adoption is rather complicated, and colorful personalities ensured not all the discussion was both friendly and technical.
+But this holy war is over as far as we are concerned here.
+
+In the following, we will concentrate on systemd, and, for the most part, ignore SysVinit as well as Upstart, which is no longer used in any significant way.
+
+== systemd Features
+
+The systemd system and session manager for Linux is now dominant in all major distributions.
+Features include the following:
+
+* Boots faster than previous init systems
+* Provides aggressive parallelization capabilities
+* Uses socket and D-Bus activation for starting services
+* Replaces shell scripts with programs
+* Offers on-demand starting of daemons
+* Keeps track of processes using cgroups
+* Maintains mount and automount points
+* Implements an elaborate transactional dependency-based service control logic
+* Can work as a drop-in replacement for SysVinit and is compatible with SysVinit scripts.
+
+Note that systemd is backward compatible with SysVinit and the concept of runlevels is supported via runlevel targets.
+The telinit program is emulated to work with runlevels.
+
+Instead of bash scripts, systemd uses .service files.
+In addition, systemd sorts all daemons into their own Linux cgroups (control groups).
+
+== systemd Configuration Files
+
+Although systemd prefers to use a set of standardized configuration files, it can also use distribution-dependent legacy configuration files as a fall-back.
+
+An example of a new configuration file would be /etc/hostname, which would replace /etc/sysconfig/network in Red Hat, /etc/HOSTNAME in SUSE, and /etc/hostname (adopted as the standard) in Debian.
+
+Other files might include:
+
+* /etc/vconsole.conf: default keyboard mapping and console font.
+* /etc/sysctl.d/*.conf: drop-in directory for kernel sysctl parameters.
+* /etc/os-release: distribution ID file.
+
+Exactly which configuration files will depend on how each distribution sets things up;
+for example, /etc/vconsole.conf, which configures virtual terminal defaults, does not appear on Ubuntu systems.
+
+systemd is backward compatible with SysVinit, so using old commands will generally work.
+It supports the use of runlevels conceptually, through the mechanism of a runlevel targets.
+In addition, telinit is emulated to work with runlevels.
+
+systemctl
+
+systemctl is the main utility for managing services.
+Its basic syntax is:
+
+$ systemctl [options] command [name]
+
+Below you can see some examples of how you can use systemctl.
+
+To show the status of everything that systemd controls:
+
+== $ systemctl
+
+To show all available services:
+
+`$ systemctl list-units -t service --all`
+
+To show only active services:
+
+`$ systemctl list-units -t service`
+
+To start (activate) or stop (deactivate) one or more units:
+
+` $ sudo systemctl start foo $ sudo systemctl start foo.service $ sudo systemctl start /path/to/foo.service $ sudo systemctl stop foo.service `
+
+where a unit can be a service or a socket.
+
+To enable/disable a service:
+
+`$ sudo systemctl enable sshd.service` `$ sudo systemctl disable sshd.service`
+
+These commands do not actually start or stop a service;
+they control whether or not it is started up at system boot.
+
+For most commands, you can omit the .service attached to the service name.
+
+*NOTE*: Some systemctl commands in the above examples can be run as non-root user, others require running as root or with sudo.
+
+For an excellent summary of how to go from SysVinit to systemd, see the Shttps://fedoraproject.org/wiki/SysVinit_to_Systemd_Cheatsheet[ysVinit to Systemd Cheatsheet].
+
+== Lab 39.1. Adding a New Startup Service with systemd
+
+To add a new startup service we need to create (as root) a file directly under `/etc/systemd/system` or somewhere else in that directory tree;
+distributions have some varying tastes on this.
+For example a very minimal file named `/etc/systemd/ system/fake2.service` (which can be extracted from your downloaded SOLUTIONS file as fake2.service) containing the following:
+
+` [Unit] Description=fake2 After=network.target [Service] ExecStart=/bin/sh -c ' /bin/echo I am starting the fake2 service ; /bin/sleep 30 ' ExecStop=/bin/echo I am stopping the fake2 service [Install] WantedBy=multi-user.target `
+
+Now there are many things that can go in this unit file.
+The `After=network.target` means the service should start only after the network does, while the `WantedBy=multi-user.target` means it should start when we reach multiple-user mode.
+This is equivalent to runlevels 2 and 3 in SysVinit.
+Note graphical.target would correlate with runlevel 5.
+
+Now all we have to do to start, stop and check the service status are to issue the commands:
+
+`$ sudo systemctl start fake2.service` `$ sudo systemctl status fake2.service` `$ sudo systemctl stop fake2.service`
+
+If you are fiddling with the unit file while doing this you'll need to reload things with: `$ sudo systemctl daemon-reload` as the system will warn you.
+To keep an eye directly on the output you can do: `$ sudo tail -f /var/log/messages` (use `/var/log/syslog` on Ubuntu) either in background or in another windows while the service is running.
+To set things up so the service turns on or off on system boot:
+
+`$ sudo systemctl enable fake2.service` `$ sudo systemctl disable fake2.service`
+
+Once again, you really need to reboot to make sure it has taken effect.

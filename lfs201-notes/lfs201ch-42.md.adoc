@@ -1,0 +1,272 @@
+:doctype: book
+
+Chapter 42 - Local System Security
+
+= Chapter 42 - Local System Security
+
+== Chapter 42 Introduction
+
+An essential task of any system administrator is to secure the system(s) against both internal and external threats.
+The work begins with designing a proper security policy, crafted to defend against expected and unexpected threat vectors.
+In addition, good system hygiene has to be practiced;
+systems need to be maintained and upgraded in timely fashion, as well as physically protected from usurpers.
+Furthermore, sensible policies have to guarantee only appropriate users have potentially dangerous privileges, and only those which are absolutely needed.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Assess system security risks.
+* Fashion and implement sound computer security policies and procedures.
+* Efficiently protect BIOS and the boot loader with passwords.
+* Use appropriate mount options, setuid and setgid to enhance security.
+
+== Local System Security Overview
+
+Computers are inherently insecure and need protection from the people who would intrude in on or attack them.
+This can be done to simply harm the system, deny services, or steal information.
+
+No computer can ever be absolutely secure.
+All we can do is slow down and/or discourage intruders so that they either go away and hunt for easier targets, or so we can catch them in the act and take appropriate action.
+
+Security can be defined in terms of the system's ability to regularly do what it is supposed to do, integrity and correctness of the system, and ensuring that the system is only available to those authorized to use it.
+
+The biggest problem with security is to find that appropriate mix of security and productivity;
+if security restrictions are tight, opaque, and difficult, especially with ineffective measures, users will circumvent procedures.
+
+The four areas we need to protect include physical, local, remote, and personnel.
+In this section we will not concentrate on network security, we will concentrate on the local factors.
+
+== Creating a Security Policy
+
+It is important to create and publicize to your organization a clear security policy.
+It should:
+
+* Be simple and easy to understand
+* Get constantly updated
+* Be in the form of a written document in addition to online documentation if needed
+* Describe both policies and procedures
+* Specify enforcement actions
+* Specify actions to take in response to a security breach.
+
+Policies should be generic and not hard to grasp as that makes them easier to follow.
+They must safeguard the data that needs protection, deny access to required services and protect user privacy.
+
+These policies should be updated on a regular basis;
+policies need to change as requirements do.
+Having an out of date policy can be worse than having none.
+
+== What to Include in the Policy
+
+A security policy should include methods of protecting information from being read or copied by unauthorized personnel.
+It should also include protection of information from being altered or deleted without the permission of the owner.
+All services should be protected so they are available and not degraded in any manner without authorization.
+
+Essential aspects to cover:
+
+* Confidentiality
+* Data Integrity
+* Availability
+* Consistency
+* Control
+* Audit
+
+You should make sure that the data is correct and the system behaves as it is expected to do.
+There should be processes in effect to determine who is given access to your system.
+The human factor is the weakest link in the security chain;
+it requires the most attention through constant auditing.
+
+== What Risks to Assess
+
+Risk analysis is based on the following three questions:
+
+* What do I want to protect (identify assets)?
+* What am I protecting it against (identify threats)?
+* How much time, personnel, and money is needed to provide adequate protection?
+
+You must know what you are protecting and what are you protecting against in order to determine how to protect your systems.
+This allows you to then plan policies and procedures to protect your systems.
+
+This is the first step taken in constructing a computer security policy.
+It is a pre-requisite for planning and then enforcing policies and procedures to protect your systems.
+
+== Choosing a Security Philosophy
+
+There are two basic philosophies found in use in most computing environments:
+
+* Anything not expressly permitted is denied.
+* Anything not expressly forbidden is permitted.
+
+You should decide which philosophy is best for your organization.
+
+The first choice is tighter: a user is allowed to do only what is clearly and explicitly specified as permissible without privilege.
+This is the most commonly used philosophy.
+
+The second choice builds a more liberal environment where users are allowed to do anything except what is expressly forbidden.
+It implies a high degree of assumed trust and is less often deployed for obvious reasons.
+
+=== Guidelines for Developing Security Philosophies
+
+*_The human factor is the weakest link_*.
+You must educate your users and keep them happy.
+The largest percentage of break-ins are internal and are not often malicious.
+
+*_No computing environment is invulnerable_*.
+The only secure system is one that is not connected to anything, locked in a secure room and turned off.
+
+*_Paranoia is a good thing_*.
+Be suspicious, be vigilant and persevere when securing a computer.
+It is an ongoing process which must be constantly paid attention to.
+Check process, users, and look for anything out of the ordinary.
+
+Users should never put the current directory in their path, *i.e, do not do something in ~/.bashrc like `PATH=./:$PATH`.*
+
+This is a significant security risk;
+a malicious person could substitute for a program with one of the same name, that could do harmful things.
+Just think of a script named ls that contains just the line:
+
+`/bin/rm -rf $HOME`
+
+If you were to go to the directory that contains this file and type ls, you would wipe out your home directory!
+
+== Updating and Patching the System
+
+It is critical to pay attention to your Linux distributor's updates and upgrades and apply them as soon as possible.
+image:../../_resources/14e87c92474a483aab67e91716f4d217.png[381e1abc2b19a93c75538042f5eff79c.png]
+
+Most attacks exploit known security holes and are deployed in the time period between revelation of a problem and patches being applied.
+Zero Day exploits are actually much rarer, where an attacker uses a security hole that either has not been discovered yet or for which a fix has not been released.
+
+System administrators are sometimes reluctant to apply such fixes immediately upon release, based on negative experiences with proprietary operating system vendors who can cause more problems with fixes than they solve.
+However, in Linux such security regressions are extremely rare, and the danger of delaying applying a security patch is probably never justifiable.
+
+== Hardware Accessibility Vulnerability
+
+Any time hardware is physically accessible security can be compromised by:
+
+* Key logging: Recording the real time activity of a computer user including the keys they press.
+The captured data can either be stored locally or transmitted to remote machines.
+* Network sniffing: Capturing and viewing the network packet level data on your network.
+* Booting with a live or rescue disk.
+* Remounting and modifying disk content.
+
+Physical access to a system makes it possible for attackers to easily leverage several attack vectors, in a way that makes all operating system level recommendations irrelevant.
+
+Thus, security policy should start with requirements on how to properly secure physical access to servers and workstations.
+
+== Hardware Access Guidelines
+
+Necessary protective steps include:
+
+* Locking down workstations and servers
+* Protecting your network links against access by people you do not trust
+* Protecting your keyboards where passwords are entered to ensure the keyboards cannot be tampered with
+* Configuring password protection of the BIOS in such a way that the system cannot be booted with a live or rescue CD/DVD or USB key.
+
+For single user computers and those in a home environment, some of the above features (like preventing booting from removable media) can be excessive, and you can avoid implementing them.
+However, if sensitive information is on your system that requires careful protection, either it should not be there, or it should be better protected by following the above guidelines.
+
+== BIOS
+
+The BIOS is the lowest level of software that configures or manipulates your system.
+The boot loader accesses the BIOS to determine how to boot up your machine.
+The BIOS:
+
+* Is the lowest level of security.
+* Should be protected by use of a password
+* Should be updated and current.
+
+Setting a BIOS password protects against unauthorized persons changing the boot options to gain access to your system.
+However, it only matters if someone can gain physical access to the machine, as it requires a local presence.
+
+Also, it is generally recommended that the BIOS be kept patched to the latest version of the firmware.
+However, most BIOS updates have nothing to do with security, and system administrators have also been instructed to apply new BIOS only with care, as incompetent BIOS code has always been a plague, and unnecessary updates can render a system useless.
+
+== Bootloader
+
+You can secure the boot process with a secure password to prevent someone from bypassing the user authentication step.
+This can work in conjunction with password protection for the BIOS.
+
+Note that using a bootloader password alone will stop a user from editing the bootloader configuration during the boot process, it will not prevent a user from booting from an alternative boot media such as optical disks or pendrives.
+Thus, it should be used with a BIOS password for full protection.
+
+For the older GRUB version 1, it was relatively easy to set a password for grub, but for the dominant GRUB 2 version, things are more complicated.
+However, you have more flexibility and can do things like setting individual user-specific passwords (which can be the normal login ones).
+
+Once again, you should not edit grub.cfg directly.
+Rather, you edit system configuration files in `/etc/grub.d` and then run `update-grub` or `grub2-mkconfig` and save the new configuration file.
+
+One explanation of this can be found on the https://help.ubuntu.com/community/Grub2/Passwords[Grub2/Passwords webpage] in the Ubuntu documentation
+
+Using Secure Mounting Options
+
+When a filesystem is mounted, either at the command line with a mount command, or automatically by inclusion in /etc/fstab, various options can be specified to enhance security:
+
+* *_nodev_*: Do not interpret character or block special devices on the filesystem.
+* *_nosuid_*: The set-user-identifier or set-group-identifier bits are not to take effect (we will shortly discuss setuid and setgid).
+* *_noexec_*: Restrict direct execution of any binaries on the mounted filesystem.
+* *_ro_*: Mount the filesystem in read-only mode as in:   `$ mount -o ro,noexec,nodev /dev/sda2 /edsel`
++
+or in `/etc/fstab`:
++
+`/dev/sda2 /edsel  ext4 ro,noexec,nodev 0 0`
+
+== setuid/setgid Bits
+
+Normally, programs are run with the privileges of the user who is executing the program.
+This means that no matter who actually owns the binary executable that is running, the process still has constricted privileges.
+
+Occasionally, it may make sense to have normal users have expanded capabilities they would not normally have, such as the ability to start or stop a network interface, or edit a file owned by the superuser.
+
+By setting the setuid (set user ID) flag on an executable file, you modify this normal behavior by giving the program the access rights of the owner rather than the user of the program.
+
+Furthermore, you can also set the setgid bit so the process runs with the privileges of the group that owns the file rather than those of the one running it.
+
+We should emphasize that this is generally a bad idea and is to be avoided in most circumstances.
+It is often better to write a daemon program with lesser privileges for this kind of use.
+Some Linux distributions have actually disabled this ability entirely.
+
+By default, when a file is created in a directory, it is owned by the user and group of the user that created it.
+Using the setgid setting on the directory changes this so that files created in the directory are group owned by the group owner of the directory.
+This allows you to create a shared directory in which a group of users can share files.
+
+For executable files (process run by user have privileges of owner or group):
+
+`$ chmod u+s somefile` `$ chmod g+s somefile`
+
+For directories (used to create a shared directory;
+files created in sgid directory are group owned by the group owner of directory):
+
+`$ chmod g+s somedir`
+
+Changing the setuid bit on a script has no effect.
+You would have to change it on bash itself, a very bad idea!
+
+== Lab 42.1: Security and Mount Options
+
+We are going to mount a partition or loop device with the noexec option to prevent execution of programs that reside on the filesystem therein.
+You can certainly do this with a pre-existing and mounted partition, but you may not be able to easily change the behavior while the partition is mounted.
+Therefore, to demonstrate we'll use a loop device, which is a harmless procedure.
+
+. Set up an empty file, put a filesystem on it and mount it.
+. Copy an executable file to it from somewhere else on your system and test that it works in the new location.
+. Unmount it and remount with the noexec option.
+. Test if the executable still works.
+It should give you an error because of the noexec mount option.
+. Clean up.
+
+Solution 42.1
+
+. `$ dd if=/dev/zero of=image bs=1M count=100` ` $ sudo mkfs.ext3 image $ mkdir mountpoint $ sudo mount -o loop image mountpoint `
+. ` $ sudo cp /bin/ls mountpoint $ mountpoint/ls `
+. ``` $ sudo umount mountpoint
+
+$ sudo mount -o noexec,loop image mountpoint ```
+
+or `$ sudo mount -o noexec,remount image mountpoint`
+
+. `$ mountpoint/ls`
+. `$ sudo umount mountpoint` ` $ rm image $ rmdir mountpoint `
+
+Note that this is not persistent.
+To make it persistent you would need to add the option to `/etc/fstab` with a line like: ` /home/student/image /home/student/mountpoint ext3 loop,rw,noexec 0 0 `

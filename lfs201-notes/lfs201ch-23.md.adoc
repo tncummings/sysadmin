@@ -1,0 +1,239 @@
+:doctype: book
+
+Chapter 23 - Logical Volume Management (LVM)
+
+= Chapter 23 - Logical Volume Management (LVM)
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the concepts behind LVM.
+* Create logical volumes.
+* Display logical volumes.
+* Resize logical volumes.
+* Use LVM snapshots.
+
+== Logical Volume Management (LVM)
+
+LVM (Logical Volume Management) breaks up one virtual partition into multiple chunks, each of which can be on different partitions and/or disks.
+
+There are many advantages to using LVM;
+in particular, it becomes really easy to change the size of the logical partitions and filesystems, to add more storage space, rearrange things, etc.
+
+One or more physical volumes (disk partitions) are grouped together into a volume group.
+Then, the volume group is subdivided into logical volumes, which mimic to the system nominal physical disk partitions and can be formatted to contain mountable filesystems.
+
+There are a variety of command line utilities tasked to create, delete, resize, etc.
+physical and logical volumes.
+For a graphical tool, some Linux distributions use system-config-lvm.
+However, RHEL no longer supports this tool and there is currently no graphical tool that works reliably with the most recent variations in filesystem types etc.
+Fortunately, the command line utilities are not hard to use and are more flexible anyway.
+
+LVM does impact performance.
+There is a definite additional cost that comes from the overhead of the LVM layer.
+However, even on non-RAID systems, if you use striping (splitting of data to more than one disk), you can achieve some parallelization improvements.
+
+Like RAID (which we will discuss in the next chapter), the use of logical volumes is a mechanism for creating filesystems which can span more than one physical disk.
+
+Logical volumes are created by putting all the devices into a large pool of disk space (the volume group), and then allocating space from the pool to create a logical volume.
+
+Logical volumes have features similar to RAID devices.
+They can actually be built on top of a RAID device.
+This would give the logical volume the redundancy of a RAID device with the scalability of LVM.
+
+LVM has better scalability than RAID: logical volumes can easily be resized;
+i.e., enlarged or shrunk, as needs require.
+If more space is needed, additional devices can be added to the logical volume at any time.
+
+== Volumes and Volume Groups
+
+Partitions are converted to physical volumes and multiple physical volumes are grouped into volume groups;
+there can be more than one volume group on the system.
+
+Space in the volume group is divided into extents;
+these are 4 MB in size by default, but the size can easily be changed when being allocated.
+
+Logical volumes are allocated from volume groups:
+
+* Can be defined by the size or number of extents
+* Filesystems are built on logical volumes
+* Can be named anything.
+
+image::../../_resources/88693c9cffcb40b29c5f401a2dee13b5.png[624b7ec257d9df4d00630754ec35c12d.png]
+
+There are a number of command line utilities used to create and manipulate volume groups, whose name always start with vg, including:
+
+* *`vgcreate`*: Creates volume groups.
+* *`vgextend`*: Adds to volume groups.
+* *`vgreduce`*: Shrinks volume groups.
+
+Utilities that manipulate what physical partitions enter or leave volume groups start with pv and include:
+
+* *`pvcreate`*: Converts a partition to a physical volume.
+* *`pvdisplay`*: Shows the physical volumes being used.
+* *`pvmove`*: Moves the data from one physical volume within the volume group to others;
+this might be required if a disk or partition is being removed for some reason.
+It would then be followed by:
+* *`pvremove`*: Remove a partition from a physical volume.
+
+Typing `man lvm` will give a full list of LVM utilities.
+
+== Logical Volumes Utilities
+
+There are a number of utilities that manipulate logical volumes.
+Unsurprisingly, they all begin with lv.
+We will discuss the most commonly used ones, but a short list can be obtained, using the following command, as in the screenshot:
+
+$ ls -lF /sbin/lv* image:../../_resources/d9e5d0625ddb48dab6bc0705b990fdb6.png[dbac178fd6d53cac2f474f56b90f863e.png]
+
+These utilities are in `/sbin`, not in `/usr/sbin`, as they may be needed either for boot or repair and recovery.
+
+Most of them are symbolically linked to `lvm`, a Swiss army knife program that does all the work, but figures out what is being asked to do based on the name it is invoked with.
+This is also true for most of the pv* and vg* utilities, as you can verify easily enough.
+
+== Creating Logical Volumes
+
+lvcreate allocates logical volumes from within volume groups.
+The size can be specified either in bytes or number of extents (remember, they are 4 MB by default).
+Names can be anything desired.
+
+`lvdisplay` reports on available logical volumes.
+
+Filesystems are placed in logical volumes and are formatted with mkfs, as usual.
+
+Starting with possibly creating a new volume group, the steps involved in setting up and using a new logical volume are:
+
+. Create partitions on disk drives (type 8e in fdisk).
+. Create physical volumes from the partitions.
+. Create the volume group.
+. Allocate logical volumes from the volume group.
+. Format the logical volumes.
+. Mount the logical volumes (also update /etc/fstab as needed).
+
+For example, assuming you have already created partitions /dev/sdb1 and /dev/sdc1 and given them type 8e:
+
+`$ sudo pvcreate /dev/sdb1` `$ sudo pvcreate /dev/sdc1` `$ sudo vgcreate -s 16M vg /dev/sdb1` `$ sudo vgextend vg /dev/sdc1` `$ sudo lvcreate -L 50G -n mylvm vg` `$ sudo mkfs -t ext4 /dev/vg/mylvm` `$ sudo mkdir /mylvm` `$ sudo mount /dev/vg/mylvm /mylvm`
+
+Be sure to add the line:
+
+`/dev/vg/mylvm /mylvm ext4 defaults 1 2`
+
+to `/etc/fstab` to make this a persistent mount.
+
+== Displaying Logical Volumes
+
+In order to display information about LVM, there are several command line programs available.
+
+*`pvdisplay`* shows physical volumes.
+If you leave off the physical volume name, it lists all physical volumes:
+
+`$ pvdisplay` `$ pvdisplay /dev/sda5`
+
+*`vgdisplay`* shows volume groups.
+If you leave off the volume group name, it lists all volume groups:
+
+`$ vgdisplay` `$ vgdisplay /dev/vg0`
+
+*`lvdisplay`* shows logical volumes.
+If you leave off the logical volume name, it lists all logical volumes:
+
+`$ lvdisplay` `$ lvdisplay /dev/vg0/lvm1`
+
+Without arguments, these utilities will display all physical volumes, volume groups, or logical volumes.
+
+== Resizing Logical Volumes
+
+One great advantage of using LVM is that it is easy and quick to change the size of a logical volume, especially when compared with trying to do this with a physical partition that already contains a filesystem.
+When doing this, extents can be added or subtracted from the logical volume, and they can come from anywhere in the volume group;
+they need not be from physically contiguous sections of the disk.
+
+If the volume contains a filesystem, expanding or shrinking it is an entirely different operation than changing the size of the volume.
+When expanding a logical volume with a filesystem, you must first expand the volume, and then expand the filesystem.
+When shrinking a logical volume with a filesystem, you must first shrink the filesystem, and then shrink the volume.
+
+This is best done with lvresize, as in:
+
+`$ sudo lvresize -r -L 20 GB /dev/VG/mylvm`
+
+where the -r option causes resizing of the filesystem at the same time as the volume size is changed.
+
+You can also reduce a volume group as in:
+
+`$ sudo pvmove /dev/sdc1` `$ sudo vgreduce vg /dev/sdc1`
+
+The filesystem cannot be mounted when being shrunk.
+However, some filesystems permit expansion while they are mounted.
+
+The utilities which change the filesystem size are obviously filesystem dependent;
+besides `lvresize`, we can also use `lvextend`, `lvreduce` with `resize2fs`.
+
+== LVM Snapshots
+
+LVM snapshots create an exact copy of an existing logical volume.
+They are useful for backups, application testing, and deploying VMs (Virtual Machines).
+The original state of the snapshot is kept as the block map.
+
+Snapshots only use space for storing deltas:
+
+* When the original logical volume changes, original data blocks are copied to the snapshot.
+* If data is added to snapshot, it is stored only there.
+
+To create a snapshot of an existing logical volume:
+
+`$ sudo lvcreate -l 128 -s -n mysnap /dev/vg/mylvm`
+
+To then make a mount point and mount the snapshot:
+
+`$ mkdir /mysnap` `$ mount -o ro /dev/vg/mysnap /mysnap`
+
+To use the snapshot and to remove the snapshot:
+
+`$ sudo umount /mysnap` `$ sudo lvremove /dev/vg/mysnap`
+
+Always be sure to remove the snapshot when you are through with it.
+If you do not remove the snapshot and it fills up because of changes, it will be automatically disabled.
+A snapshot with the size of the original will never overflow.
+
+== Lab 23.1: Logical Volumes
+
+We are going to create a logical volume using two 250 MB partitions.
+We are going to assume you have real partitionable disk space available.
+1.
+Create two 250 MB partitions of type logical volume (8e).
+2.
+Convert the partitions to physical volumes.
+3.
+Create a volume group named myvg and add the two physical volumes to it.
+Use the default extent size.
+4.
+Allocate a 300 MB logical volume named mylvm from volume group myvg.
+5.
+Format and mount the logical volume mylvm at `/mylvm`.
+6.
+Use `lvdisplay` to view information about the logical volume.
+7.
+Grow the logical volume and corresponding filesystem to 350 MB.
+
+=== Solution
+
+`$ sudo fdisk /dev/sda` using whatever hard disk is appropriate, and create the two partitions.
+While in fdisk, typing t will let you set the partition type to 8e.
+While it doesn't matter if you don't set the type, it is a good idea to lessen confusion.
+Use w to rewrite the partition table and exit, and then:
+
+`$ sudo partprobe -s` or reboot to make sure the new partitions take effect.
+
+Assuming the new partitions are `/dev/sdaX` and `/dev/sdaY`: `$ sudo pvcreate /dev/sdaX` `$ sudo pvcreate /dev/sdaY` `$ sudo pvdisplay`
+
+`$ sudo vgcreate myvg /dev/sdaX /dev/sdaY` `$ sudo vgdisplay`
+
+`$ sudo lvcreate -L 300M -n mylvm myvg` `$ sudo lvdisplay`
+
+`$ sudo mkfs.ext4 /dev/myvg/mylvm` `$ sudo mkdir /mylvm` `$ sudo mount /dev/myvg/mylvm /mylvm` If you want the mount to be persistent, edit `/etc/fstab` to include the line: `/dev/myvg/mylvm /mylvm ext4 defaults 0 0`
+
+`$ sudo lvdisplay` `$ df -h` `$ sudo lvresize -r -L 350M /dev/myvg/mylvm` `$ df -h` or `$ sudo lvresize -r -L +50M /dev/myvg/mylvm`
+
+or with older methods you can do:
+
+`$ df -h` `$ sudo lvextend -L 350M /dev/myvg/mylvm` `$ sudo resize2fs /dev/myvg/mylvm` `$ df -h`

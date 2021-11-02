@@ -1,0 +1,317 @@
+:doctype: book
+
+Chapter 36 - Firewalls
+
+= Chapter 36 - Firewalls
+
+== Chapter 36 Introduction
+
+Firewalls are used to control both incoming and outgoing access to your systems and local network, and are an essential security facility in modern networks, where intrusions and other kinds of attacks are a fact of life on any computer connected to the internet.
+You can control the level of trust afforded on traffic across particular interfaces, and/or with particular network addresses.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Understand what firewalls are and why they are necessary.
+* Know what tools are available both at the command line and using graphical interfaces.
+* Discuss about firewalld and the firewall-cmd programs.
+* Know how to work with zones, sources, services and ports.
+
+== What Is a Firewall?
+
+A firewall is a network security system that monitors and controls all network traffic.
+It applies rules on both incoming and outgoing network connections and packets and builds flexible barriers (i.e., firewalls) depending on the level of trust and network topography of a given connection.
+
+Firewalls can be hardware or software based.
+They are found both in network routers, as well as in individual computers, or network nodes.
+Many firewalls also have routing capabilities.
+
+== Packet Filtering
+
+Almost all firewalls are based on Packet Filtering.
+
+Information is transmitted across networks in the form of packets, and each one of these packets has:
+
+* Header
+* Payload
+* Footer.
+
+The header and footer contain information about destination and source addresses, what kind of packet it is, and which protocol it obeys, various flags, which packet number this is in a stream, and all sorts of other metadata about transmissions.
+The actual data is in the payload.
+
+Packet filtering intercepts packets at one or more stages in the network transmission, including application, transport, network, and datalink.
+
+A firewall establishes a set of rules by which each packet may be:
+
+* Accepted or rejected based on content, address, etc.
+* Mangled in some way
+* Redirected to another address
+* Inspected for security reasons, etc.
+
+Various utilities exist for establishing rules and actions to be taken as the result of packet filtering.
+
+== Firewall Generations
+
+Early firewalls (dating back to the late 1980s) were based on packet filtering: the content of each network packet was inspected and was either dropped, rejected, or sent on.
+No consideration was given about the connection state: what stream of traffic the packet was part of.
+
+The next generation of firewalls were based on stateful filters, which also examine the connection state of the packet, to see if it is a new connection, part of an already existing one, or part of none.
+Denial of service attacks can bombard this kind of firewall to try and overwhelm it.
+
+The third generation of firewalls is called Application Layer Firewalls, and are aware of the kind of application and protocol the connection is using.
+They can block anything which should not be part of the normal flow.
+
+== Firewall Interfaces and Tools
+
+Configuring your system's firewall can be done by:
+
+* Using relatively low-level tools from the command line, combined with editing various configuration files in the /etc subdirectory tree: iptables, firewall-cmd, ufw, etc.
+* Using robust graphical interfaces: system-config-firewall, firewall-config, gufw, yast, etc.
+
+We will work with the lower-level tools for the following reasons:
+
+* They change less often than the graphical ones.
+* They tend to have a larger set of capabilities.
+* They vary little from distribution to distribution, while the GUIs tend to be quite different and each confined to only one family of distributions.
+
+The disadvantage is they can seem more difficult to learn at first.
+In the following, we will concentrate on the use of the modern firewalld package, which includes both firewall-cmd and firewall-config.
+For distributions which don't have it by default, it can be installed from source rather easily, as we will do if necessary in an exercise.
+
+== Why We Are Not Working with iptables
+
+Most firewall installations today are actually using the iptables package on the user side.
+This currently interfaces the same kernel firewall implementation code as firewalld, which we will discuss in more detail.
+
+We have decided not to teach iptables because it requires much more time to get to useful functionality.
+
+However, iptables is discussed in detail in the next course in the Linux Foundation system administrator sequence: LFS311 - Linux for System Engineers/LFS211 - Linux Networking and Administration.
+
+== firewalld and firewall-cmd
+
+firewalld is the Dynamic Firewall Manager.
+It utilizes network/firewall zones which have defined levels of trust for network interfaces or connections.
+It supports both IPv4 and IPv6 protocols.
+
+In addition, it separates runtime and permanent (persistent) changes to configuration, and also includes interfaces for services or applications to add firewall rules.
+
+Configuration files are kept in /etc/firewalld and /usr/lib/firewalld;
+the files in /etc/firewalld override those in the other directory and are the ones a system administrator should work on.
+
+The command line tool is actually firewall-cmd which we will discuss.
+We recommend that before getting any further, you run:
+
+`+ $ firewall-cmd --help Usage: firewall-cmd [OPTIONS...] ....
+Status Options   --state                Return and print firewalld state   --reload               Reload firewall and keep state information   --complete-reload      Reload firewall and loose state information   --runtime-to-permanent Create permanent from runtime configuration ....
++`
+
+which runs about 200 lines, so it is too long to include here.
+
+However, you will see that almost all options are rather obvious as they are well-named.
+As a service, firewalld replaces the older iptables.
+It is an error to run both services, firewalld and iptables, at the same time.
+
+== firewalld Service Status
+
+firewalld is a service which needs to be running to use and configure the firewall, and is enabled/disabled, or started or stopped in the usual way:
+
+`$ sudo systemctl [enable/disable] firewalld` `$ sudo systemctl [start/stop] firewalld`
+
+You can show the current state in either of the following ways:
+
+`+ $ sudo systemctl status firewalld firewalld.service - firewalld - dynamic firewall daemon    Loaded: loaded (/usr/lib/systemd/system/firewalld.service;
+enabled)    Active: active (running) since Tue 2015-04-28 12:00:59 CDT;
+5min ago  Main PID: 777 (firewalld) ...
++`
+
+` $ sudo firewall-cmd --state running `
+
+Note that if you have more than one network interface when using IPv4, you have to turn on ip forwarding.
+You can do this at runtime by doing either of:
+
+`$ sudo sysctl net.ipv4.ip_forward=1` `$ echo 1 > /proc/sys/net/ipv4/ip_forward`
+
+where the second command has to be run as root to get echo to work properly.
+However, this is not persistent.
+To do that, you have to add the following line to /etc/sysctl.conf:
+
+net.ipv4.ip_forward=1
+
+and then reboot or type:
+
+$ sudo sysctl -p
+
+to read in the new setting without rebooting.
+
+== Zones
+
+firewalld works with zones, each of which has a defined level of trust and a certain known behavior for incoming and outgoing packets.
+Each interface belongs to a particular zone (normally, it is NetworkManager which informs firewalld which zone is applicable), but this can be changed with firewall-cmd or the firewall-config GUI.
+
+*_drop_*: All incoming packets are dropped with no reply.
+Only outgoing connections are permitted.
+
+*_block_*:All incoming network connections are rejected.
+The only permitted connections are those from within the system.
+
+*_public_*: Do not trust any computers on the network;
+only certain consciously selected incoming connections are permitted.
+
+*_external_*: Used when masquerading is being used, such as in routers.
+Trust levels are the same as in public.
+
+*_dmz (Demilitarized Zone)_*: Used when access to some (but not all) services are to be allowed to the public.
+Only particular incoming connections are allowed.
+
+*_work_*: Trust (but not completely) connected nodes to be not harmful.
+Only certain incoming connections are allowed.
+
+*_home_*: You mostly trust the other network nodes, but still select which incoming connections are allowed.
+
+*_internal_*: Similar to the work zone.
+
+*_trusted_*: All network connections are allowed.
+
+On system installation, most, if not all Linux distributions, will select the public zone as default for all interfaces.
+
+The differences between some of the zones we mentioned are not obvious, and we do not need to go into that much detail here, but note that one should not use a more open zone than necessary.
+
+== Zone Management Examples
+
+To see the options available for firewall-cmd:
+
+`+ $ firewall-cmd --help ....
+Zone Options --get-default-zone   Print default zone for connections and interfaces --set-default-zone=<zone>                      Set default zone --get-active-zones   Print currently active zones --get-zones          Print predefined zones [P] --get-services       Print predefined services [P} --get-icmptypes      Print predefined icmptypes [P] --get-zone-of-interface=<interface>                    Print name of the zone the interface is bound to [P] --get-zone-of-source=<source>[/<mask>]                Print name of the zone the source[/mask] is bound to [P] --list-all-zones  List everything added for or enabled in all zones [P] --new-zone=<zone>    Add a new zone [P only] --delete-zone=<zone> Delete an existing zone [P only] --zone=<zone>   Use this zone to set or query options, else default zone                      Usable for options marked with [Z] --get-target         Get the zone target [P] [Z] --set-target=<target>                      Set the zone target [P] [Z] +`
+
+Get the default zone:
+
+` $ sudo firewall-cmd --get-default-zone public `
+
+Obtain a list of zones currently being used:
+
+` $ sudo firewall-cmd --get-active-zones public   interfaces: eno16777736 `
+
+List all available zones:
+
+` $ sudo firewall-cmd --get-zones block dmz drop external home internal public trusted work `
+
+To change the default zone to trusted and then change it back!
+
+` $ sudo firewall-cmd --set-default-zone=trusted success `
+
+` $ sudo firewall-cmd --set-default-zone=public success `
+
+To assign an interface temporarily to a particular zone:
+
+` $ sudo firewall-cmd --zone=internal --change-interface=eno1 success `
+
+To assign an interface to a particular zone permanently:
+
+` $ sudo firewall-cmd --permanent --zone=internal --change-interface=eno1 success `
+
+which creates the file `/etc/firewalld/zones/internal.xml`.
+
+To ascertain the zone associated with a particular interface:
+
+` $ sudo firewall-cmd --get-zone-of-interface=eno1 public `
+
+Finally, to get all details about a particular zone:
+
+` $ sudo firewall-cmd --zone=public --list-all public (active)   target: default   icmp-block-inversion: no   interfaces: eno1   sources:   services: chromecast libvirt libvirt-tls nfs nfs3 rsyncd ssh   ports:   protocols:   masquerade: no   forward-ports:   source-ports:   icmp-blocks:   rich rules: `
+
+Controlling firewalld is done through the firewall-cmd program.
+More detailed information can be obtained with:
+
+`man firewalld-cmd`
+
+== Source Management
+
+Any zone can be bound not just to a network interface, but also to particular network addresses.
+A packet is associated with a zone if:
+
+` It comes from a source address already bound to the zone;
+or if not, It comes from an interface bound to the zone.
+`
+
+Any packet not fitting the above criteria is assigned to the default zone (i.e, usually public).
+
+To assign a source to a zone (permanently):
+
+` $ sudo firewall-cmd --permanent --zone=trusted --add-source=192.168.1.0/24 success `
+
+This says anyone with an IP address of 192.168.1.x will be added to the trusted zone.
+
+Note that you can remove a previously assigned source from a zone by using the --remove-source option, or change the zone by using --change-source.
+
+You can list the sources bound to a zone with:
+
+`$ sudo firewall-cmd --permanent --zone=trusted --list-sources 192.168.1.0/24`
+
+In both of the above commands, if you leave out the --permanent option, you get only the current runtime behavior.
+
+== Service Management
+
+So far, we have assigned particular interfaces and/or addresses to zones, but we haven't delineated what services and ports should be accessible within a zone.
+
+To see all the services available:
+
+` $ sudo firewall-cmd --get-services RH-Satellite-6 amanda-client bacula bacula-client dhcp dhcpv6 dhcpv6-client dns ftp high-availability http https imaps ipp ipp-client ipsec kerberos kpasswd ldap ldaps libvirt libvirt-tls mdns mountd ms-wbt mysql nfs ntp openvpn pmcd pmproxy pmwebapi pmwebapis pop3s postgresql proxy-dhcp radius rpc-bind samba samba-client smtp ssh telnet tftp tftp-client transmission-client vnc-server wbem-https `
+
+or, to see those currently accessible in a particular zone:
+
+` $ sudo firewall-cmd --list-services --zone=public dhcpv6-client ssh `
+
+To add a service to a zone:
+
+` $ sudo firewall-cmd --permanent --zone=home --add-service=dhcp success `
+
+`$ sudo firewall-cmd --reload`
+
+The second command, with --reload, is needed to make the change effective.
+It is also possible to add new services by editing the files in `/etc/firewalld/services`.
+
+== Port Management
+
+Port management is very similar to service management:
+
+` $ sudo firewall-cmd --zone=home --add-port=21/tcp success `
+
+` $ sudo firewall-cmd --zone=home --list-ports 21/tcp `
+
+where by looking at /etc/services we can ascertain that port 21 corresponds to ftp:
+
+` $ grep " 21/tcp" /etc/services ftp              21/tcp `
+
+== Lab 36.1. Installing firewalld
+
+While most Linux distributions now have the firewalld package (which includes the firewall-cmd multi-purpose utility) available, it might not be installed on your system.
+First you should check to see if it is already installed, with:
+
+$ which firewalld firewall-cmd /usr/sbin/firewalld /usr/bin/firewall-cmd
+
+If you fail to find the program, then you need to install with one of the following, depending on your distribution in the usual way: ` $ sudo dnf install firewalld $ sudo zypper install firewalld $ sudo apt-get install firewalld ` If this fails, the firewalld package is not available for your distribution.
+In this case you will have to install from source.
+To do this, go to https://fedorahosted.org/firewalld/ and you can get the git source repository, or you can easily download the most recent tarball.
+Then you have to follow the common procedure for installing from source (using whatever the current version is):
+
+` $tar xvf firewalld-0.3.13.tar.bz2 $cd firewalld-0.3.13 $./configure $make $sudo make install `
+
+Note this source also has an uninstall target:
+
+`$ sudo make uninstall`
+
+in case you have regrets.
+
+You will have to deal with any inadequacies that come up in the ./configure step, such as missing libraries etc.
+When you install from a packaging system, the distribution takes care of this for you, but from source it can be problematic.
+If you have run the Linux Foundation's ready-for.sh script on your system, you are unlikely to have problems.
+
+MY NOTE: Completed on AWS rh8 instance
+
+``` [ec2-user@ip-172-31-27-213 ~]$ sudo systemctl status firewalld ● firewalld.service - firewalld - dynamic firewall daemon    Loaded: loaded (/usr/lib/systemd/system/firewalld.service;
+enabled;
+vendor preset: enabled)    Active: active (running) since Fri 2021-04-23 13:20:16 UTC;
+15min ago      Docs: man:firewalld(1)  Main PID: 5406 (firewalld)     Tasks: 2 (limit: 4760)    Memory: 24.9M    CGroup: /system.slice/firewalld.service            └─5406 /usr/libexec/platform-python -s /usr/sbin/firewalld --nofork --nopid
+
+Apr 23 13:20:16 ip-172-31-27-213.us-east-2.compute.internal systemd[1]: Starting firewalld - d> Apr 23 13:20:16 ip-172-31-27-213.us-east-2.compute.internal systemd[1]: Started firewalld - dy> Apr 23 13:20:16 ip-172-31-27-213.us-east-2.compute.internal firewalld[5406]: WARNING: AllowZon> ```

@@ -1,0 +1,223 @@
+:doctype: book
+
+Chapter 32 - File Permissions and Ownership
+
+= Chapter 32 - File Permissions and Ownership
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the concepts of owner, group, and world.
+* Set file access rights (read, write, and execute) for each category.
+* Authenticate requests for file access, respecting proper permissions.
+* Use chmod to change file permissions, chown to change user ownership, and chgrp to change group ownership.
+* Understand the role of umask in establishing desired permissions on newly created files.
+* Use ACLs to extend the simpler user, group, world and read, write, execute model.
+
+== Owner, Group and World
+
+When you do an `ls -l`, as in:
+
+` $ ls -l a_file -rw-rw-r-- 1 coop aproject 1601 Mar 9 15:04 a_file `
+
+after the first character (which indicates the type of the file object), there are nine more which indicate the access rights granted to potential file users.
+These are arranged in three groups of three:
+
+* owner: the user who owns the file (also called user)
+* group: the group of users who have access
+* world: the rest of the world (also called other).
+
+In the above listing, the user is coop and the group is aproject.
+
+== File Access Rights
+
+If you do a long listing of a file, as in:
+
+` $ ls -l /usr/bin/vi -rwxr-xr-x.
+1 root root 1206144 Jun 14 08:49 /usr/bin/vi `
+
+each of the triplets can have each of the following sets:
+
+* r: read access is allowed
+* w: write access is allowed
+* x: execute access is allowed.
+
+If the permission is not allowed, a - (dash) appears instead of one of these characters.
+
+In addition, other specialized permissions exist for each category, such as the setuid/setgid permissions.
+
+Thus, in the preceding example, the user coop and members of the group aproject have read and write access, while anyone else has only read access.
+
+These file access permissions are a critical part of the Linux security system.
+Any request to access a file requires comparison of the credentials and identity of the requesting user to those of the owner of the file.
+
+This authentication is granted depending on one of these three sets of permissions, in the following order:
+
+* If the requester is the file owner, the file owner permissions are used.
+* Otherwise, if the requester is in the group that owns the files, the group permissions are examined.
+* If that doesn't succeed, the world permissions are examined.
+
+== chmod
+
+Changing file permissions is done with `chmod`.
+You can only change permissions on files you own, unless you are the superuser.
+
+There are a number of different ways to use `chmod`.
+For instance, to give the owner and world execute permission, and remove the group write permission:
+
+`+ $ ls -l a_file -rw-rw-r-- 1 coop coop 1601 Mar 9 15:04 a_file $ chmod uo+x,g-w a_file $ ls -l a_file -rwxr--r-x 1 coop coop 1601 Mar 9 15:04 a_file +`
+
+where u stands for user (owner), o stands for other (world), and g stands for group.
+
+Permissions can be represented either as a bitmap, usually written in octal, or in a symbolic form.
+Octal bitmaps usually look like 0755, while symbolic representations look like u+rwx,g+rx,o+rx.
+
+== Octal Digits
+
+The symbolic syntax can be difficult to type and remember, so one often uses the octal shorthand, which lets you set all the permissions in one step.
+This is done with a simple algorithm, and a single digit suffices to specify all three permission bits for each entity.
+The octal number representation is the sum for each digit of:
+
+* 4 if the read permission is desired
+* 2 if the write permission is desired
+* 1 if execute permission is desired.
+
+Thus, 7 means read/write/execute, 6 means read/write, and 5 means read/execute.
+
+When you apply this with `chmod`, you have to give a value for each of the three digits, such as in
+
+` $ chmod 755 a_file $ ls -l a_file -rwxr-xr-x 1 coop coop 1601 Mar 9 15:04 a_file ` image:../../_resources/d240f2992fe94fe4a1ff35d4746bbd06.png[87df2238744fd12c8fd6e29cf7934d6c.png]
+
+== `chown` and `chgrp`
+
+Changing file ownership is done with chown and changing the group is done with chgrp.
+Only the superuser can change ownership on files.
+Likewise, you can only change group ownership to groups that you are a member of.
+
+Changing the group ownership of the file is as simple as doing:
+
+`$ chgrp cleavers somefile`
+
+and changing the ownership (only the superuser can do this) is as simple as
+
+`$ chown wally somefile`
+
+You can change both at the same time with:
+
+`$ chown wally:cleavers somefile`
+
+where you separate the owner and the group with a colon (or a period).
+
+Both programs take the -R option, which stands for recursive.
+For example:
+
+`$ chown -R wally:cleavers ./` `$ chown -R wally:wally subdir`
+
+will change the owner and group of all files in the current directory and all its subdirectories in the first command, and in subdir and all its subdirectories in the second command.
+
+== umask
+
+The default permissions given when creating a file are read/write for owner, group and world (0666), and for a directory it is read/write/execute for everyone (0777).
+However, if you do the following:
+
+`$ touch afile` `$ mkdir adir` ` $ ls -l | grep -e afile -e adir drwxrwxr-x 2 coop coop 4096 Sep 16 11:18 adir -rw-rw-r-- 1 coop coop 0 Sep 16 11:17 afile `
+
+you will notice the actual permissions have changed to 664 for the file and 775 for the directory.
+They have been modified by the current umask whose purpose is to show which permissions should be denied.
+The current value can be shown by:
+
+` $ umask 0002 `
+
+which is the most conventional value set by system administrators for users.
+This value is combined with the file creation permissions to get the actual result;
+i.e.,
+
+0666 & ~002 = 0664;
+i.e., rw-rw-r--
+
+You can change the umask at any time with the umask command, as in
+
+`$ umask 0022`
+
+== Filesystem ACLs
+
+Linux contains a full implementation of POSIX ACLs (Access Control Lists) which extends the simpler user, group, world and read, write, execute model.
+
+Particular privileges can be granted to specific users or groups of users when accessing certain objects or classes of objects.
+Files and directories can be shared without using 777 permissions.
+
+While the Linux kernel enables the use of ACLs, it still must be implemented as well in the particular filesystem.
+All major filesystems used in modern Linux distributions incorporate the ACL extensions, and one can use the option -acl when mounting.
+A default set of ACLs is created at system install.
+
+To see ACLs:
+
+`$ getfacl file|directory`
+
+Example:
+
+`$ getfacl file1`
+
+To set ACLs:
+
+`$ setfacl options permissions file|directory`
+
+Examples:
+
+`$ setfacl -m u:isabelle:rx /home/stephane/file1` `$ setfacl -x u:isabelle /home/stephane/file`
+
+Note that new files inherit the default ACL (if set) from the directory they reside in.
+Also note that mv and cp -p preserve ACLs.
+
+To remove an ACL:
+
+`$ setfacl -x u:isabelle /home/stephane/file1`
+
+To set the default on a directory:
+
+`$ setfacl -m d:u:isabelle:rx somedir`
+
+== Lab 32.1: Using chmod
+
+One can use either the octal digit or symbolic methods for specifying permissions when using chmod.
+Let's elaborate some more on the symbolic method.
+
+It is possible to either give permissions directly, or add or subtract permissions.
+The syntax is pretty obvious.
+Try the following examples: $ chmod u=r,g=w,o=x afile $ chmod u=+w,g=-w,o=+rw afile $ chmod ug=rwx,o=-rw afile After each step do: $ ls -l afile to see how the permissions took, and try some variations image:../../_resources/7e8fb55afd22474795d2ce70121984ac.png[48a9aa9f4e8dbe71bc0bcea6bbcf402a.png]
+
+== Lab 32.2: umask
+
+Create an empty file with: `$ touch afile` ` $ ls -l afile -rw-rw-r-- 1 coop coop 0 Jul 26 12:43 afile ` which shows it is created by default with both read and write permissions for owner and group, but only read for world.
+In fact, at the operating system level the default permissions given when creating a file or directory are actually read/write for owner, group and world (0666);
+the default values have actually been modified by the current umask.
+If you just type `umask` you get the current value: ` $ umask 0002 ` which is the most conventional value set by system administrators for users.
+This value is combined with the file creation permissions to get the actual result;
+i.e., 0666 &  ̃002 = 0664;
+i.e., rw-rw-r--.
+Try modifying the umask and creating new files and see the resulting permissions, as in: `$ umask 0022` `$ touch afile2` `$ umask 0666` `$ touch afile3` `$ ls -l afile*`
+
+image::../../_resources/1fa34243be3146738cb32ff75ccbec88.png[d30bb3fb1d52e5425a26cf0cc47aba92.png]
+
+== Lab 32.3: Using Access Control Lists
+
+. Create a file using your usual user name and run getfacl on it to see its properties.
+. Create a new user account with default properties (or reuse one from previous exercises.
+. Login as that user and try to add a line to the file you created in the first step.
+This should fail.
+. User setfacl to make the file writeable by the new user and try again.
+. User setfacl to make the file not readable by the new user and try again.
+. Clean up as necessary
+. In window 1: `$ echo This is a file > /tmp/afile` ` $ getfacl /tmp/afile getfacl: Removing leading '/' from absolute path names # file: tmp/afile # owner: coop # group: coop user::rw- group::rw- other::r-- `
+. In window 1: `$ sudo useradd fool` `$ sudo passwd fool` \...
+. In window 2: `$ sudo su - fool` ` $ echo another line > /tmp/afile -bash: /tmp/afile: Permission denied `
+. In window 1: `$ setfacl -m u:fool:rw /tmp/afile` ` $ getfacl /tmp/afile getfacl: Removing leading'/' from absolute path names # file: tmp/afile # owner: coop # group: coop user::rw- user:fool:rw- group::rw- mask::rwx other::r-- ` In window 2: `$ echo another line > /tmp/afile`
+. In window 1: `$ setfacl -m u:fool:w /tmp/afile` In window 2: `$ echo another line > /tmp/afile -bash: /tmp/afile: Permission denied`
+. Cleaning up: `$ rm /tmp/afile` `$ sudo userdel -r fool`
+
+image::../../_resources/b3a386a753214ca7abc699374c019086.png[b2df66b4542f4613433c3a0a9563300c.png]
+
+image::../../_resources/d1ebfe8349a64a2eb5165c1893fd100e.png[f27647afa58e7d0ec1c2351481cc3b72.png]
+
+*My Notes*: The last write from the user fool worked because of the initial umask being set to 002, allowing the user to write, but not read the file.

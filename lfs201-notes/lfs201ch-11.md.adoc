@@ -1,0 +1,253 @@
+:doctype: book
+
+Chapter 11 - System Monitoring
+
+= Chapter 11 - System Monitoring
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Understand the concept of inventory and gain familiarity with available system monitoring tools.
+* Understand where the system stores log files and examine the most important ones.
+* Use the /proc and /sys pseudo-filesystems.
+* Use sar to gather system activity and performance data and create reports that are readable by humans.
+
+== Available Monitoring Tools
+
+Linux distributions come with many standard performance and profiling tools already installed.
+Many of them are familiar from other UNIX-like operating systems, while some were developed specifically for Linux.
+
+Most of these tools make use of mounted pseudo-filesystems, especially /proc and /sys, both of which we have already discussed when examining filesystems and kernel configuration.
+We will look at them both.
+
+While there are also a number of graphical system monitors that hide many of the details, we will consider only the command line tools in this course.
+
+Before considering some of the main utilities in some detail, you can see a summary below, broken down by type;
+please note that some of the utilities have overlapping domains of coverage.
+We will revisit these tables in the following chapters that focus on the specific topics.
+
+=== Process and Load Monitoring Utilities
+
+* Utility	Purpose	Package
+* `top`	Process activity, dynamically updated	procps
+* uptime	How long the system is running and the average load	procps
+* `ps`	Detailed information about processes	procps
+* `pstree`	A tree of processes and their connections	psmisc (or pstree)
+* `mpstat`	Multiple processor usage	sysstat
+* `iostat`	CPU utilization and I/O statistics	sysstat
+* `sar`	Display and collect information about system activity	sysstat
+* `numastat`	Information about NUMA (Non-Uniform Memory Architecture)	numactl
+* `strace`	Information about all system calls a process makes	strace
+
+=== Memory Monitoring Utilities
+
+* Utility	Purpose	Package
+* `free`	Brief summary of memory usage	procps
+* `vmstat`	Detailed virtual memory statistics and block I/O, dynamically updated	procps
+* `pmap`	Process memory map	procps
+
+=== I/O Monitoring Utilities
+
+* Utility	Purpose	Package
+* `iostat`	CPU utilization and I/O statistics	sysstat
+* `sar`	Display and collect information about system activity	sysstat
+* `vmstat`	Detailed virtual memory statistics and block I/O, dynamically updated	procps
+
+=== Network Monitoring Utilities
+
+* Utility	Purpose	Package
+* `netstat`	Detailed networking statistics	netstat
+* `iptraf`	Gather information on network interfaces	iptraf
+* `tcpdump`	Detailed analysis of network packets and traffic	tcpdump
+* `wireshark`	Detailed network traffic analysis	wireshark
+
+== Log Files
+
+System log files are essential for monitoring and troubleshooting.
+In Linux, these messages appear in various files under /var/log.
+Exact names vary with Linux distribution.
+
+Ultimate control of how messages are dealt with is controlled by the syslogd (usually rsyslogd on modern systems) daemon, common to many UNIX-like operating systems.
+The newer systemd-based systems can use journalctl instead, but usually retain syslogd and cooperate with it.
+
+Important messages are sent not only to the logging files, but also to the system console window;
+if you are not running X, or are at a virtual terminal, you will see them directly there as well.
+In addition, these messages will be copied to /var/log/messages (or to /var/log/syslog on Ubuntu), but if you are running X, you have to take some steps to view them.
+
+You can view new messages continuously as new lines appear with:
+
+`$ sudo tail -f /var/log/messages` or
+
+`$ sudo tail -f /var/log/syslog`
+
+or
+
+`$ dmesg -w`
+
+which shows only kernel-related messages.
+
+Besides looking at log messages in a terminal window, you can see them using graphical interfaces.
+
+On a GNOME desktop, you can also access the messages by clicking on System \-> Administration \-> System Log or Applications \-> System Tools \-> Log File Viewer in your Desktop menus, and other desktops have similar links you can locate.
+
+== Some important log files found under /var/log
+
+* `boot.log`	System boot messages
+* `dmesg`	Kernel messages saved after boot.
+To see the current contents of the kernel message buffer, type dmesg.
+* `messages or syslog`	All important system messages
+* `secure`	Security-related messages
+
+In order to keep log files from growing without bound, the logrotate program is run periodically and and keeps four previous copies (by default) of the log files (optionally compressed) and is controlled by `/etc/logrotate.conf`.
+
+== Pseudofilesystems: /proc and /sys
+
+The `/proc` and `/sys` pseudofilesystems contain a lot of information about the system.
+Furthermore, many of the entries in these directory trees are writable and can be used to change system behavior;
+in most cases, this requires a root user.
+
+These are pseudofilesystems because they exist totally in memory;
+if you look at the disk partition when the system is not running, there will be only an empty directory which is used as a mount point.
+
+Furthermore, the information displayed is gathered only when it is looked at;
+there is no constant or periodic polling to update entries.
+
+The `/proc` pseudofilesystem has a long history;
+it has roots in other UNIX operating system variants, and, originally, was developed to display information about processes on the system, each of which has its own subdirectory in `/proc` with all important process characteristics available.
+
+Over time, it grew to contain a lot of information about system properties, such as interrupts, memory, networking, etc, in a somewhat anarchistic way.
+It is still extensively used, and we will often refer to it.
+
+Most of the tunable system parameters can be found in the subdirectory tree rooted at `/proc/sys`.
+` ubuntu@ip-172-31-21-230:~$ ls -lF /proc/sys total 0 dr-xr-xr-x 1 root root 0 Feb  4 20:56 abi/ dr-xr-xr-x 1 root root 0 Feb  4 20:56 debug/ dr-xr-xr-x 1 root root 0 Feb  4 20:56 dev/ dr-xr-xr-x 1 root root 0 Feb  3 16:21 fs/ dr-xr-xr-x 1 root root 0 Feb  3 16:21 kernel/ dr-xr-xr-x 1 root root 0 Feb  4 20:56 net/ dr-xr-xr-x 1 root root 0 Feb  4 20:56 user/ dr-xr-xr-x 1 root root 0 Feb  4 20:56 vm/ ubuntu@ip-172-31-21-230:~$ `  Each of these subdirectories contains information, as well as knobs that can be tuned (with care):
+
+* `abi/` Contains files with application binary information;
+rarely used.
+* `debug/` Debugging parameters;
+for now, just some control of exception reporting.
+* `dev/` Device parameters, including subdirectories for cdrom, scsi, raid, and parport.
+* `fs/` Filesystem parameters, including quota, file handles used, and maximums, inode and directory information, etc.
+* `kernel/` Kernel parameters.
+There are many important entries here.
+* `net/` Network parameters.
+There are subdirectories for ipv4, netfilter, etc.
+* `vm/` Virtual memory parameters.
+There are many important entries here.
+
+Viewing and changing the parameters can be done with simple commands.
+For example, the maximum number of threads allowed on the system can be seen by looking at:
+
+` $ cat /proc/sys/kernel/threads-max 129498 `
+
+We then can modify the value and verify the change was effected:
+
+``` $ sudo bash -c 'echo 100000 > /proc/sys/kernel/threads-max'
+
+$ cat /proc/sys/kernel/threads-max 100000 ```
+
+Remember from our discussion of sysctl the same effect is accomplished by:
+
+`$ sudo sysctl kernel.threads-max=100000`
+
+Viewing the value can be done as a normal user, while changing it requires superuser privilege.
+
+The `/sys` pseudofilesystem is an integral part of what is termed the _Unified Device Model_.
+Conceptually, it is based on a device tree and one can walk through it and see the buses, devices, etc.
+It also now contains information which may or may not be strictly related to devices, such as kernel modules.
+
+It has a more tightly defined structure than does `/proc`.
+Most entries contain only one line of text, although there are exceptions, unlike its antecedent, which has many multi-line entries whose exact contents have been known to change between kernel versions.
+Thus, the interface is hopefully more stable.
+
+There are system properties which have display entries in both `/proc` and `/sys`;
+for compatibility with widely used system utilities, the older forms are only gradually being whittled down.
+
+Support for the _sysfs virtual filesystem_ is built into all modern kernels, and it should be mounted under `/sys`.
+However, the unified device model does not require mounting sysfs in order to function.
+
+Let's take a look at what can be found using the 3.18 kernel;
+we warn you that the exact layout of this filesystem has a tendency to mutate.
+Doing a top level directory command yields:
+
+` $ ls -F /sys block/ bus/ class/ dev/ devices/ firmware/ fs/ kernel/ module/ power/ `
+
+which displays the basic device hierarchy.
+The device model sysfs implementation also includes information not strictly related to hardware.
+
+Network devices can be examined with:
+
+`ls -lF /sys/class/net` image:../../_resources/c2211aed8f37427ea19e6ee8e62c27d2.png[21b17c31e7e9d73a917f2d20f5769b4e.png]
+
+You can see what looking at the Ethernet card gives us in the screenshot here.
+The intention with sysfs is to have one text value per line, although this is not expected to be rigorously enforced.
+
+`ls -F /sys/class/net/ens33/`  image:../../_resources/a61e708ed3954d7798682db93e53c5d6.png[88631e5a17de5744e2c1be81a9a341a4.png]
+
+The underlying device and driver for the first network interface can be traced through the device and (to be seen shortly) the driver symbolic links.
+The screenshot here shows us what we can see when looking at the directory corresponding to the first Ethernet card.
+
+To see the full spectrum of information that is available with sysfs, you'll just have to examine it.
+
+== sar
+
+`sar` stands for the _Systems Activity Reporter_.
+It is an all-purpose tool for gathering system activity and performance data and creating reports that are readable by humans.
+
+On Linux systems, the backend to `sar` is `sadc` (system activity data collector), which actually accumulates the statistics.
+It stores information in the `/var/log/sa` directory, with a daily frequency by default, but which can be adjusted.
+Data collection can be started from the command line, and regular periodic collection is usually started as a cron job stored in `/etc/cron.d/sysstat`.
+
+`sar` then reads in this data (either from the default locations or by use of a file specified with the -f option), and then produces a report.
+
+`sar` is invoked via:
+
+`$ sar [ options ] [ interval ] [ count ]`
+
+where the report is repeated after interval seconds a total of count times (which defaults to 1).
+With no options, it gives a report on CPU usage.
+
+``` ubuntu@ip-172-31-21-230:~$ sudo sar 3 3  Linux 5.4.0-1037-aws (ip-172-31-21-230) 	02/04/2021 	_x86_64_	(1 CPU)
+
+09:36:35 PM     CPU     %user     %nice   %system   %iowait    %steal     %idle 09:36:38 PM     all      0.33      0.00      0.33      0.00      0.00     99.34 09:36:41 PM     all      0.00      0.00      0.33      0.00      0.00     99.67 09:36:44 PM     all      0.00      0.00      0.00      0.00      0.00    100.00 Average:        all      0.11      0.00      0.22      0.00      0.00     99.67 ubuntu@ip-172-31-21-230:~$ ```
+
+`+ ubuntu@ip-172-31-21-230:~$ sar --help Usage: sar [ options ] [ <interval> [ <count> ] ] Main options and reports (report name between square brackets): 	-B	Paging statistics [A_PAGE] 	-b	I/O and transfer rate statistics [A_IO] 	-d	Block devices statistics [A_DISK] 	-F [ MOUNT ] 		Filesystems statistics [A_FS] 	-H	Hugepages utilization statistics [A_HUGE] 	-I { <int_list> | SUM | ALL } 		Interrupts statistics [A_IRQ] 	-m { <keyword> [,...] | ALL } 		Power management statistics [A_PWR_...] 		Keywords are: 		CPU	CPU instantaneous clock frequency 		FAN	Fans speed 		FREQ	CPU average clock frequency 		IN	Voltage inputs 		TEMP	Devices temperature 		USB	USB devices plugged into the system 	-n { <keyword> [,...] | ALL } 		Network statistics [A_NET_...] 		Keywords are: 		DEV	Network interfaces 		EDEV	Network interfaces (errors) 		NFS	NFS client 		NFSD	NFS server 		SOCK	Sockets	(v4) 		IP	IP traffic	(v4) 		EIP	IP traffic	(v4) (errors) 		ICMP	ICMP traffic	(v4) 		EICMP	ICMP traffic	(v4) (errors) 		TCP	TCP traffic	(v4) 		ETCP	TCP traffic	(v4) (errors) 		UDP	UDP traffic	(v4) 		SOCK6	Sockets	(v6) 		IP6	IP traffic	(v6) 		EIP6	IP traffic	(v6) (errors) 		ICMP6	ICMP traffic	(v6) 		EICMP6	ICMP traffic	(v6) (errors) 		UDP6	UDP traffic	(v6) 		FC	Fibre channel HBAs 		SOFT	Software-based network processing 	-q	Queue length and load average statistics [A_QUEUE] 	-r [ ALL ] 		Memory utilization statistics [A_MEMORY] 	-S	Swap space utilization statistics [A_MEMORY] 	-u [ ALL ] 		CPU utilization statistics [A_CPU] 	-v	Kernel tables statistics [A_KTABLES] 	-W	Swapping statistics [A_SWAP] 	-w	Task creation and system switching statistics [A_PCSW] 	-y	TTY devices statistics [A_SERIAL] ubuntu@ip-172-31-21-230:~$ +`  For example, in the screenshot here you can take a look at getting paging statistics, and then I/O and transfer rate statistics.
+
+The ksar program is a Java-based utility for generating nice graphs of sar data.
+It can be downloaded from the ksar webpage.
+
+image::../../_resources/73f023f356da46f9acea9459f38c4f0f.png[2e195bed440c13c949702ca319200d85.png]
+
+== Exercise 11.1: Using stress or stress-ng
+
+stress is a C language program written by Amos Waterland at the University of Oklahoma, licensed under the GPL v2.
+It is designed to place a configurable amount of stress by generating various kinds of workloads on the system.
+
+stress-ng is essentially an enhanced version of stress, which respects its symptoms and options.
+It is actively maintained: see https://wiki.ubuntu.com/Kernel/Reference/stress-ng
+
+All major distributions should have stress-ng in their packaging systems However, for RHEL/CentOS it needs to be obtained from the EPEL repository.
+As of this writing there is no package in the EPEL 8 repository, but you can install the one from EPEL 7 without a problem.
+
+If you are lucky you can install stress or stress-ng directly from your distribution's packaging system.
+Otherwise, the source for stress-ng can be obtained using git from https://kernel.ubuntu.com/git/cking/stress-ng.git/.
+(Or you can download a tarball and use that.)
+
+To download, compile, and install: $ git clone git://kernel.ubuntu.com/cking/stress-ng.git ` $ cd stress-ng $ make $ sudo make install ` Once installed, you can do:``$ stress-ng --help`` for a quick list of options, or `$ info stress-ng` for more detailed documentation.
+
+As an example, the command:  `$ stress-ng -c 8 -i 4 -m 6 -t 20s`
+
+will: - Fork off 8 CPU-intensive processes, each spinning on a sqrt() calculation.
+- Fork off 4 I/O-intensive processes, each spinning on sync().
+- Fork off 6 memory-intensive processes, each spinning on malloc(), allocating 256 MB by default.
+The size can be changed as in --vm-bytes 128M.
+- Run the stress test for 20 seconds.
+
+After installing stress-ng, you may want to start up your system's graphical system monitor,  which you can find on your application menu, or run from the command line, which is probably gnome-system-monitor or ksysguard.
+Now begin to put stress on the system.
+The exact numbers you use will depend on your system's resources, such as the number of CPU's and RAM size.
+For example, doing  `$ stress-ng -m 4 -t 20s`
+
+puts only a memory stressor on the system.
+Play with combinations of the switches and see how they impact each other.
+You may find the stress-ng program useful to simulate various high load conditions.

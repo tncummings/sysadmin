@@ -1,0 +1,276 @@
+:doctype: book
+:pp: {plus}{plus}
+
+Chapter_5_-_Package_Management_Systems
+
+= Chapter 5 - Package Management Systems
+
+Created Sunday 24 January 2021
+
+[discrete]
+=== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain why software package management systems are necessary.
+* Understand the function of both binary and source packages.
+* Enumerate the main available package management systems.
+* Understand why two levels of utilities are needed: one that deals with just bare packages, and one that deals with dependencies among packages.
+* Explain how creating your own package enhances the control you have over exactly what goes in software and how it is installed.
+* Understand the role of source control systems, and git in particular.
+
+[discrete]
+=== Software Packaging Concepts
+
+Package management systems supply the tools that allow system administrators to automate installing, upgrading, configuring and removing software packages in a known, predictable and consistent manner.
+These systems:
+
+* Gather and compress associated software files into a single package (archive), which may require one or more other packages to be installed first.
+* Allow for easy software installation or removal.​
+* Can verify file integrity via an internal database.​
+* Can authenticate the origin of packages.​
+* Facilitate upgrades.​
+* Group packages by logical features.​
+* Manage dependencies between packages.
+
+A given package may contain executable files, data files, documentation, installation scripts and configuration files.
+Also included are metadata attributes such as version numbers, checksums, vendor information, dependencies, descriptions, etc.
+
+Upon installation, all that information is stored locally into an internal database, which can be conveniently queried for version status and update information.
+
+[discrete]
+=== Why Use Packages?
+
+Software package management systems are widely seen as one of the biggest advancements Linux brought to enterprise IT environments.
+By keeping track of files and metadata in an automated, predictable and reliable way, system administrators can use package management systems to make their installation processes scale to thousands of systems without requiring manual work on each individual system.
+Features include:
+
+* Automation: No need for manual installs and upgrades.
+* Scalability: Install packages on one system, or 10,000 systems.
+* Repeatability and predictability.
+* Security and auditing.
+
+[discrete]
+=== Package Types
+
+Packages come in several different types.
+
+[discrete]
+==== Binary Packages
+
+Binary packages contain files ready for deployment, including executable files and libraries.
+These are architecture-dependent, and must be compiled for each type of machine.
+
+[discrete]
+==== Source Packages
+
+Source packages are used to generate binary packages;
+you should always be able to rebuild a binary package (for example, by using rpmbuild --rebuild on RPM-based systems) from the source package.
+One source package can be used for multiple architectures.
+
+Binary packages are the ones that system administrators have to deal with most of the time.
+
+On 64-bit systems that can run 32-bit programs, you may have two binary packages installed for a given program, perhaps one with x86_64 or amd64 in its name, and the other with i386 or i686 in its name.
+
+Source packages can be helpful in keeping track of changes and source code used to come up with binary packages.
+They are usually not installed on a system by default, but can always be retrieved from the vendor.
+
+It should always be possible to rebuild binary packages from their source packages;
+for example on RPM-based systems one can rebuild the p7zip binary package by doing:
+
+`# rpmbuild --rebuild -rb p7zip-16.02-16.el8.src.rpm`
+
+which will place the results in /root/rpmbuild:
+
+....
+# root/rpmbuild>find . -name "*rpm"
+
+./RPMS/x86_64/p7zip-plugins-16.02-16.el8.x86_64.rpm
+./RPMS/x86_64/p7zip-debugsource-16.02-16.el8.x86_64.rpm
+./RPMS/x86_64/p7zip-plugins-debuginfo-16.02-16.el8.x86_64.rpm
+./RPMS/x86_64/p7zip-16.02-16.el8.x86_64.rpm
+./RPMS/noarch/p7zip-doc-16.02-16.el8.noarch.rpm
+....
+
+with the exact location depending on the Linux distribution and version.
+
+[discrete]
+=== Available Package Management Systems
+
+There are two very common package management systems.
+
+* RPM (Red Hat Package Manager): This system is used by all Red Hat-derived distributions, such as Red Hat Enterprise Linux, CentOS, Scientific Linux and CentOS, as well as by SUSE and its related community openSUSE distribution.
+* APT (Advanced Packaging Tool)/DPKG (Debian Package): This system is used by all Debian-derived distributions, including Debian, Ubuntu and Linux Mint.
+
+[discrete]
+==== Low Level Utilities
+
+This simply installs or removes a single package, or a list of packages, each one of which is individually and specifically named.
+Dependencies are not fully handled, only warned about:
+
+* If another package needs to be installed, first installation will fail.
+* If the package is needed by another package, removal will fail.
+
+The rpm and dpkg utilities play this role for the packaging systems that use them.
+
+[discrete]
+==== High Level Utilities
+
+This solves the dependency problems:
+
+* If another package or group of packages needs to be installed before software can be installed, such needs will be satisfied.
+* If removing a package interferes with another installed package, the administrator will be given the choice of either aborting, or removing all affected software.
+
+The yum, dnf, zypper and PackageKit utilities take care of the dependency resolution for rpm systems, and apt and apt-cache and other utilities take care of it for dpkg systems.
+
+[discrete]
+=== Package Sources
+
+Every distribution has one or more package repositories where system utilities go to obtain software and to update with new versions.
+It is the job of the distribution to make sure all packages in the repositories play well with each other.
+
+There are always other external repositories which can be added to the standard distribution-supported list.
+Sometimes, these are closely associated with the distribution, and only rarely produce significant problems;
+an example would be the EPEL (Extra Packages for Enterprise Linux) set of version-dependent repositories, which fit well with RHEL since their source is Fedora and the maintainers are close to Red Hat.
+
+However, some external repositories are not very well constructed or maintained.
+For example, when a package is updated in the main repository, dependent packages may not be updated in the external one, which can lead to one form of dependency hell.
+
+[discrete]
+=== Creating Software Packages
+
+Building your own custom software packages makes it easy to distribute and install your own software.
+Almost every version of Linux has some mechanism for doing this.
+
+Building your own package allows you to control exactly what goes in the software and exactly how it is installed.
+You can create the package so that installing it runs scripts that perform all tasks needed to install the new software and/or remove the old software, such as:
+
+Creating needed symbolic links Creating directories as needed Setting permissions Anything that can be scripted.
+
+We will not discuss mechanisms of how to build .rpm or .deb packages, as that is a question mostly for developers, rather than administrators.
+
+[discrete]
+=== Revision Control Systems
+
+Software projects become more complex to manage as either the size of the project increases, or the number of contributing developers goes up.
+
+In order to organize updates and facilitate cooperation, many different schemes are available for source control.
+Standard features of such programs include the ability to keep an accurate history, or log, of changes, be able to back up to earlier releases, coordinate possibly conflicting updates from more than one developer, etc.
+
+Source Control Systems (or Revision Control Systems, as they are also commonly called) fill the role of coordinating cooperative development.
+
+There is no shortage of available products, both proprietary and open;
+a brief list of products released under a GPL license includes:
+
+Revision Control System (RCS) Concurrent Versions System (CVS) Apache Subversion git GNU Arch Monotone Mercurial.
+
+We will focus only on git, a widely used product which arose from the Linux kernel development community.
+git has risen to a dominant position in use for open source projects in a remarkably short time, and is often used even in closed source environments.
+
+[discrete]
+=== The Linux Kernel and the Birth of git
+
+The Linux kernel development system has special needs in that it is widely distributed throughout the world, with literally thousands of developers involved.
+Furthermore it is all done very publicly, under the GPL license.
+
+For a long time, there was no real source revision control system.
+Then, major kernel developers went over to the use of BitKeeper, a commercial project which granted a restricted use license for Linux kernel development.
+
+However, in a very public dispute over licensing restrictions in the spring of 2005, the free use of BitKeeper became unavailable for Linux kernel development.
+
+The response was the development of git, whose original author was Linus Torvalds.
+The source code for git can be obtained from the Index of /pub/software/scm/git, and full documentation can be found online as well.
+
+[discrete]
+=== How git Works
+
+Technically, git is not a source control management system in the usual sense, and the basic units it works with are not files.
+It has two important data structures: an object database and a directory cache.
+
+The object database contains objects of three varieties:
+
+Blobs: Chunks of binary data containing file contents Trees: Sets of blobs including file names and attributes, giving the directory structure Commits: Changesets describing tree snapshots.
+
+The directory cache captures the state of the directory tree.
+
+By liberating the controls system from a file-by-file-based system, one is better able to handle changesets which involve many files.
+
+git is always under rapid development and graphical interfaces to it are also under speedy construction.
+For example, see git repositories web page.
+You can easily browse particular changes, as well as source trees.
+GitHub now host literally millions of git repositories, both public and private.
+There are a host of easy-to-find articles, books, online tutorials, etc., on how to profitably use git.
+
+[discrete]
+=== Exercise 5.1: Version Control with git
+
+[discrete]
+==== Making sure git is installed
+
+Your system may already have git installed.
+Doing which git should show you if it is already present.
+If not, while you may obtain the source and compile and install it, it is usually easier to install the appropriate pre-compiled binary packages.
+Exact package names may vary, but one of the following should work depending on your distribution:
+
+$ mkdir git-test $ cd git-test $ git init
+
+. Initializing the project creates a .git directory which will contain all the version control information;
+the main directories
+
+included in the project remain untouched.
+The initial contents of this directory look like:
+
+ tom@aur6a:~/git-test$ ls -l .git
+ total 32
+ drwxrwxr-x 2 tom tom 4096 Jan 24 18:38 branches
+ -rw-rw-r-- 1 tom tom   92 Jan 24 18:38 config
+ -rw-rw-r-- 1 tom tom   73 Jan 24 18:38 description
+ -rw-rw-r-- 1 tom tom   23 Jan 24 18:38 HEAD
+ drwxrwxr-x 2 tom tom 4096 Jan 24 18:38 hooks
+ drwxrwxr-x 2 tom tom 4096 Jan 24 18:38 info
+ drwxrwxr-x 4 tom tom 4096 Jan 24 18:38 objects
+ drwxrwxr-x 4 tom tom 4096 Jan 24 18:38 refs
+
+Later we will describe the contents of this directory and its subdirectories;
+for the most part they start out empty.
+
+. Next we create a file and add it to the project:
++
+tom@aur6a:~/git-test$ echo some junk > somejunkfile  tom@aur6a:~/git-test$ git add somejunkfile
+
+. We can see the current status of our project with:
++
+tom@aur6a:~/git-test$ git status  On branch master  No commits yet  Changes to be committed:    (use "git rm --cached +++<file>+++\..." to unstage) new file: somejunkfile tom@aur6a:~/git-test$+++</file>+++
+
+Notice it is telling us that our file is staged but not yet committed.
+
+. Let's tell git who is responsible for this repository:
+
+`tom@aur6a:~/git-test$ git config user.name "Another genius"` `tom@aur6a:~/git-test$ git config user.email "`link:mailto:a_genius@linux.com[`a_genius@linux.com`]`"`
+
+This must be done for each new project unless you have it predefined in a global configuration file.
+
+. Now let's modify the file, and then see the history of differences:
++
+tom@aur6a:~/git-test$ echo another line >> somejunkfile  tom@aur6a:~/git-test$ git diff  diff --git a/somejunkfile b/somejunkfile  index 9638122..6023331 100644  --- a/somejunkfile  {pp}+ b/somejunkfile  @@ -1 +1,2 @@   some junk  +another line  tom@aur6a:~/git-test$
+
+. To actually commit the changes to the repository we do:
++
+tom@aur6a:~/git-test$ git commit -m "My initial commit"  [master (root-commit) 9ac458c] My initial commit   1 file changed, 1 insertion(+)   create mode 100644 somejunkfile  tom@aur6a:~/git-test$
+
+If you do not specify an identifying message to accompany the commit with the -m option you will jump into an editor to put some content in.
+You must do this or the commit will be rejected.
+The editor chosen will be what is set in your EDITOR environment variable, which can be superseded with setting GIT_EDITOR .
+
+. You can see your history with:
++
+tom@aur6a:~/git-test$ git log  commit 9ac458c483be74518988ece80bc7d0dd4805aab5 (HEAD \-> master)  Author: Another genius link:mailto:a_genius@linux.com[a_genius@linux.com]  Date:   Sun Jan 24 19:07:02 2021 -0500      My initial commit  tom@aur6a:~/git-test$
+
+and you can see the information got in there.
+You will note the long hexadecimal string which is the commit number;
+it is a 160-bit, 40-digit unique identifier.
+git cares about these beasts, not file names.
+
+. You are now free to modify the already exiting file and add new files with git add . But they are staged until you do another `git commit`
+. Now that was not so bad.
+But we have only scratched the surface.

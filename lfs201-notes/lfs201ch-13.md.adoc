@@ -1,0 +1,242 @@
+:doctype: book
+
+Chapter 13 - Memory Monitoring and Usage
+
+= Chapter 13 - Memory Monitoring and Usage
+
+## Chapter 13 Introduction
+
+Over time, systems have become more demanding of memory resources at the same time RAM prices have decreased and performance has improved.
+Yet, it is often the case that bottlenecks in overall system performance and throughput are memory-related;
+the CPUs and the I/O subsystem can be waiting for data to be retrieved from or written to memory.
+There are many tools for monitoring, debugging and tuning a system's behavior with regard to its memory.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* List the primary (inter-related) considerations and tasks involved in memory tuning.
+* Use entries in /proc/sys/vm, and decipher /proc/meminfo.
+* Use vmstat to display information about memory, paging, I/O, processor activity, and processes' memory consumption.
+* Understand how the OOM-killer decides when to take action and selects which processes should be exterminated to open up some memory.
+
+== Memory Monitoring
+
+Tuning the memory sub-system can be a complex process.
+First of all, one has to take note that memory usage and I/O throughput are intrinsically related, as, in most cases, most memory is being used to cache the contents of files on disk.
+
+Thus, changing memory parameters can have a large effect on I/O performance, and changing I/O parameters can have an equally large converse effect on the virtual memory sub-system.
+
+When tweaking parameters in /proc/sys/vm, the usual best practice is to adjust one thing at a time and look for effects.
+The primary (inter-related) tasks are:
+
+* Controlling flushing parameters;
+i.e., how many pages are allowed to be dirty and how often they are flushed out to disk.
+* Controlling swap behavior;
+i.e., how much pages that reflect file contents are allowed to remain in memory, as opposed to those that need to be swapped out as they have no other backing store.
+* Controlling how much memory overcommission is allowed, since many programs never need the full amount of memory they request, particularly because of copy on write (COW) techniques.
+
+Memory tuning can often be subtle, and what works in one system situation or load may be far from optimal in other circumstances.
+
+Moreover, it is often the case that bottlenecks in overall system performance and throughput are memory-related;
+the CPUs and the I/O subsystem can be waiting for data to be retrieved from or written to memory.
+
+=== Memory Monitoring Utilities
+
+Utility	Purpose	Package - `free`	Brief summary of memory usage	procps - `vmstat`	Detailed virtual memory statistics and block I/O, dynamically updated	procps - `pmap`	Process memory map	procps
+
+The simplest tool to use is free:
+
+``` c7:/tmp> free -m
+
+   total used  free shared buff/cache available
+
+Mem:  15901 2946  2080   9317       4502     12457 Swap:  8095    0  8095 ```
+
+== /proc/meminfo
+
+The pseudofile `/proc/meminfo` contains a wealth of information about how memory is being used.
+
+``` $ cat /proc/meminfo
+
+MemTotal: 16275080 kB MemFree:  3117968 kB MemAvailable: 11260960 kB Buffers: 1115028 kB Cached: 7785520 kB SwapCached: 87488 kB Active: 6206148 kB Inactive: 6132824 kB Active(anon): 3086828 kB Inactive(anon): 1124176 kB Active(file): 3119320 kB Inactive(file): 5008648 kB Unevictable: 117096 kB Mlocked: 32 kB SwapTotal: 21580796 kB SwapFree: 21471740 kB Dirty: 264 kB Writeback: 0 kB AnonPages: 3189032 kB Mapped: 986784 kB Shmem: 772612 kB KReclaimable: 351196 kB Slab: 506264 kB SReclaimable: 351196 kB SUnreclaim: 155068 kB KernelStack: 17760 kB PageTables: 91492 kB NFS_Unstable: 0 kB Bounce:  0 kB WritebackTmp: 0 kB CommitLimit: 29718336 kB Committed_AS: 13371052 kB VmallocTotal: 34359738367 kB VmallocUsed: 33060 kB VmallocChunk: 0 kB Percpu: 6080 kB HardwareCorrupted: 0 kB AnonHugePages: 815104 kB ShmemHugePages: 0 kB ShmemPmdMapped: 0 kB CmaTotal: 0 kB CmaFree: 0 kB HugePages_Total: 0 HugePages_Free: 0 HugePages_Rsvd: 0 HugePages_Surp: 0 Hugepagesize: 2048 kB Hugetlb: 0 kB DirectMap4k: 249932 kB DirectMap2M: 13254656 kB DirectMap1G: 4194304 kB ```
+
+It is worthwhile to go through this listing and understand most of the entries, listed in the table below.
+
+=== /proc/meminfo Entries
+
+Entry	Meaning - _MemTotal_	Total usable RAM (physical minus some kernel reserved memory) - _MemFree_	Free memory in both low and high zones - _Buffers_	Memory used for temporary block I/O storage - _Cached_	Page cache memory, mostly for file I/O - _SwapCached_	Memory that was swapped back in but is still in the swap file - _Active_	Recently used memory, not to be claimed first - _Inactive_	Memory not recently used, more eligible for reclamation - _Active(anon)_	Active memory for anonymous pages - _Inactive(anon)_	Inactive memory for anonymous pages - _Active(file)_	Active memory for file-backed pages - _Inactive(file)_	Inactive memory for file-backed pages - _Unevictable_	Pages which can not be swapped out of memory or released - _Mlocked_	Pages which are locked in memory - _SwapTotal_	Total swap space available - _SwapFree_	Swap space not being used - _Dirty_	Memory which needs to be written back to disk - _Writeback_	Memory actively being written back to disk - _AnonPages_	Non-file back pages in cache - _Mapped_	Memory mapped pages, such as libraries - _Shmem_	Pages used for shared memory - _Slab_	Memory used in slabs - _SReclaimable_	Cached memory in slabs that can be reclaimed - _SUnreclaim_	Memory in slabs that can't be reclaimed - _KernelStack_	Memory used in kernel stack - _PageTables_	Memory being used by page table structures - _Bounce_	Memory used for block device bounce buffers - _WritebackTmp_	Memory used by FUSE filesystems for writeback buffers - _CommitLimit_	Total memory available to be used, including overcommission - _Committed_AS_	Total memory presently allocated, whether or not it is used - _VmallocTotal_	Total memory available in kernel for vmalloc allocations - _VmallocUsed_	Memory actually used by vmalloc allocations - _VmallocChunk_	Largest possible contiguous vmalloc area - _HugePages_Total_	Total size of the huge page pool - _HugePages_Free_	Huge pages that are not yet allocated - _HugePages_Rsvd_	Huge pages that have been reserved, but not yet used - _HugePages_Surp_	Huge pages that are surplus, used for overcommission - _Hugepagesize_	Size of a huge page
+
+*Note that the exact entries you may see will depend on the exact kernel version you are running.*
+
+== /proc/sys/vm
+
+The /proc/sys/vm directory contains many tunable knobs to control the Virtual Memory system.
+Exactly what appears in this directory will depend somewhat on the kernel version.
+Almost all of the entries are writable (by root).
+
+Remember that these values can be changed either by directly writing to the entry, or using the sysctl utility.
+Furthermore, by modifying /etc/sysctl.conf, values can be set at boot time.
+
+You can find the full documentation for the /proc/sys/vm directory in the kernel source (or kernel documentation package on your distribution), usually under Documentation/sysctl/vm.txt.
+
+=== /proc/sys/vm Entries
+
+Entry	Purpose _admin_reserve_kbytes_	Amount of free memory reserved for privileged users _block_dump_	Enables block I/O debugging _compact_memory_	Turns on or off memory compaction (essentially defragmentation) when configured into the kernel _dirty_background_bytes_	Dirty memory threshold that triggers writing uncommitted pages to disk _dirty_background_ratio_	Percentage of total pages at which kernel will start writing dirty data out to disk _dirty_bytes_	The amount of dirty memory a process needs to initiate writing on its own _dirty_expire_centisecs_	When dirty data is old enough to be written out in hundredths of a second _dirty_ratio_	Percentage of pages at which a process writing will start writing out dirty data on its own _dirty_writeback_centisecs_	Interval in which periodic writeback daemons wake up to flush.
+If set to zero, there is no automatic periodic writeback _drop_caches_	Echo 1 to free page cache, 2 to free dentry and inode caches, 3 to free all.
+Note only clean cached pages are dropped;
+do sync first to flush dirty pages _extfrag_threshold_	Controls when the kernel should compact memory _hugepages_treat_as_movable_	Used to toggle how huge pages are treated _hugetlb_shm_group_	Sets a group ID that can be used for System V huge pages _laptop_mode_	Can control a number of features to save power on laptops _legacy_va_layout_	Use old layout (2.4 kernel) for how memory mappings are displayed _lowmen_reserve_ratio_	Controls how much low memory is reserved for pages that can only be there;
+i.e., pages which can go in high memory instead will do so.
+Only important on 32-bit systems with high memory _max_map_count_	Maximum number of memory mapped areas a process may have.
+The default is 64 K _min_free_kbytes_	Minimum free memory that must be reserved in each zone _mmap_min_addr_	How much address space a user process cannot memory map.
+Used for security purposes, to avoid bugs where accidental kernel null dereferences can overwrite the first pages used in an application _nr_hugepages_	Minimum size of hugepage pool _nr_pdflush_hugepages_	Maximum size of the hugepage pool = nr_hugepages nr_overcommit_hugepages _nr_pdflush_threads_	Current number of pdflush threads;
+not writeable _oom_dump_tasks_	If enabled, dump information produced when oom-killer cuts in _oom_kill_allocating_task_	If set, the oom-killer kills the task that triggered the out of memory situation, rather than trying to select the best one _overcommit_kbytes_	One can set either _overcommit_ratio_ or this entry, but not both _overcommit_memory_	If 0, kernel estimates how much free memory is left when allocations are made.
+If 1, permits all allocations until memory actually does run out.
+If 2, prevents any overcommission _overcommit_ratio_	If overcommit_memory = 2 memory commission can reach swap plus this percentage of RAM _page-cluster_	Number of pages that can be written to swap at once, as a power of two.
+Default is 3 (which means 8 pages) _panic_on_oom_	Enable system to crash on an out of memory situation _percpu_pagelist_fraction_	Fraction of pages allocated for each cpu in each zone for hot-pluggable CPU machines _scan_unevictable_pages_	If written to, system will scan and try to move pages to try and make them reclaimable _stat_interval_	How often vm statistics are updated (default 1 second) by vmstat _swappiness_	How aggressively should the kernel swap _user_reserve_kbytes_	If overcommit_memory is set to 2 this sets how low the user can draw memory resources _vfs_cache_pressure_	How aggressively the kernel should reclaim memory used for inode and dentry cache.
+Default is 100;
+if 0 this memory is never reclaimed due to memory pressure
+
+== vmstat
+
+vmstat is a multi-purpose tool that displays information about memory, paging, I/O, processor activity and processes.
+It has many options.
+The general form of the command is:
+
+`$ vmstat [options] [delay] [count]`
+
+If delay is given in seconds, the report is repeated at that interval count times;
+if count is not given, vmstat will keep reporting statistics forever, until it is killed by a signal, such as Ctrl-C.
+
+If no other arguments are given, you can see what vmstat displays, where the first line shows averages since the last reboot, while succeeding lines show activity during the specified interval.
+
+`$ vmstat 2 4`
+
+image::../../_resources/9534986afb9a4e1eb6c9d7ee49878da1.png[fa334b3c415aa05e851238ea3f8f0c25.png]
+
+` tom@aur6a:~$ vmstat 2 4 procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st  0  0 508496 6208908 609744 4785316    0    0     1     9    7   16  2  1 97  0  0  0  0 508496 6207144 609744 4785340    0    0     0     0 1617 1403  1  1 98  0  0  1  0 508496 6206892 609748 4785344    0    0     0   402 1652 2305  1  1 98  0  0  0  0 508496 6207624 609748 4785344    0    0     0    40 1679 2197  1  1 98  0  0 tom@aur6a:~$ `  If the option -S m is given, memory statistics will be in MB instead of KB.
+
+` tom@aur6a:~$ vmstat -S M 2 4 procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st  0  0    496   6074    596   4672    0    0     1     9    8   16  2  1 97  0  0  0  0    496   6074    596   4672    0    0     0     0 1623 2606  1  1 98  0  0  0  0    496   6074    596   4672    0    0     0     0 1713 2565  1  1 98  0  0  0  0    496   6074    596   4672    0    0     0     0 1689 2437  1  0 98  0  0 tom@aur6a:~$ `
+
+With the -a option, vmstat displays information about active and inactive memory, where active memory pages are those which have been recently used;
+they may be clean (disk contents are up to date) or dirty (need to be flushed to disk eventually).
+By contrast, inactive memory pages have not been recently used and are more likely to be clean and are released sooner under memory pressure:
+
+`$ vmstat -a 2 4`
+
+Memory can move back and forth between active and inactive lists, as they get newly referenced, or go a long time between uses.
+
+` tom@aur6a:~$ vmstat -a 2 4 procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----  r  b   swpd   free  inact active   si   so    bi    bo   in   cs us sy id wa st  0  0 508496 6217392 3590044 5667840    0    0     1     9    8   17  2  1 97  0  0  0  0 508496 6217384 3590044 5668048    0    0     0     0 1652 1650  2  1 97  0  0  0  0 508496 6217100 3590044 5668108    0    0     0     0 1663 2535  2  0 98  0  0  0  0 508496 6216840 3590044 5668112    0    0     0    18 1675 2296  1  0 98  0  0 tom@aur6a:~$ `
+
+image:../../_resources/86155864adca46d293bb3806fe6ea9ca.png[8b41ec2598b50a5013e0c0ce44995cc6.png] Screenshot of the vmstat -SM -a 2 4 Command and Its Output
+
+To get a table of disk statistics, use the -d option:
+
+image::../../_resources/bd80b361945847d7813bb22d7ccfb3fa.png[0fb8fe58d10f59bdcd6fc87cd84bf2de.png]
+
+` tom@aur6a:~$ vmstat -d disk- ------------reads------------ ------------writes----------- -----IO------        total merged sectors      ms  total merged sectors      ms    cur    sec loop0      0      0       0       0      0      0       0       0      0      0 loop1      0      0       0       0      0      0       0       0      0      0 loop2      0      0       0       0      0      0       0       0      0      0 loop3      0      0       0       0      0      0       0       0      0      0 loop4      0      0       0       0      0      0       0       0      0      0 loop5      0      0       0       0      0      0       0       0      0      0 loop6      0      0       0       0      0      0       0       0      0      0 loop7      0      0       0       0      0      0       0       0      0      0 nvme0n1    105      0    4696       4      0      0       0       0      0      0 sda    80761  31313 5654151 1285474 1855567 748590 38010624 5492334      0   3800 sr0      106      0    2466    9064      0      0       0       0      0      8 dm-0     176      0    8739    3796 141989      0 1135848 67238332      0     10 tom@aur6a:~$ `
+
+If you just want to get some quick statistics on only one partition, use the -p option:
+
+image:../../_resources/6f84faa6ccf74ab28292f6ff40a465b4.png[9f607c00ec2cf4039d21f6c7be963057.png] Using vmstat on One Disk
+
+== OOM Killer
+
+The simplest way to deal with memory pressure would be to permit memory allocations to succeed as long as free memory is available and then fail when all memory is exhausted.
+
+The second simplest way is to use swap space on disk to push some of the resident memory out of core;
+in this case, the total available memory (at least in theory) is the actual RAM plus the size of the swap space.
+The hard part of this is to figure out which pages of memory to swap out when pressure demands.
+In this approach, once the swap space itself is filled, requests for new memory must fail.
+
+Linux, however, goes one better;
+it permits the system to overcommit memory, so that it can grant memory requests that exceed the size of RAM plus swap.
+While this might seem foolhardy, many (if not most) processes do not use all requested memory.
+
+An example would be a program that allocates a 1 MB buffer, and then uses only a few pages of the memory.
+Another example is that every time a child process is forked, it receives a copy of the entire memory space of the parent.
+Because Linux uses the COW (copy on write) technique, unless one of the processes modifies memory, no actual copy needs be made.
+However, the kernel has to assume that the copy might need to be done.
+
+Thus, the kernel permits overcommission of memory, but only for pages dedicated to user processes;
+pages used within the kernel are not swappable and are always allocated at request time.
+
+You can modify, and even turn off this overcommission by setting the value of `/proc/sys/vm/overcommit_memory`:
+
+* 0: (default) Permit overcommission, but refuse obvious overcommits, and give root users somewhat more memory allocation than normal users.
+* 1: All memory requests are allowed to overcommit.
+* 2: Turn off overcommission.
+Memory requests will fail when the total memory commit reaches the size of the swap space plus a configurable percentage (50 by default) of RAM.
+This factor is modified changing `/proc/sys/vm/overcommit_ratio`.
+
+If available memory is exhausted, Linux invokes the OOM-killer (Out Of Memory) to decide which process(es) should be exterminated to open up some memory.
+
+There is no precise science for this;
+the algorithm must be heuristic and cannot satisfy everyone.
+In the minds of many developers, the purpose of the OOM-killer is to permit a graceful shutdown, rather than be a part of normal operations.
+
+An amusing take on this was given by https://lwn.net/Articles/104185/[Andries Brouwer]:
+
+``` From: 	 	Andries Brouwer +++<aebr-AT-win.tue.nl>+++To: Thomas Habets +++<thomas-AT-habets.pp.se>+++Subject: Re: [PATCH] oom_pardon, aka don't kill my xlock Date: Fri, 24 Sep 2004 01:45:20 +0200 Cc: linux-kernel-AT-vger.kernel.org+++</thomas-AT-habets.pp.se>++++++</aebr-AT-win.tue.nl>+++
+
+On Thu, Sep 23, 2004 at 01:23:08AM +0200, Thomas Habets wrote:
+
+____
+How about a sysctl that does "for the love of kbaek, don't ever kill these  processes when OOM.
+If nothing else can be killed, I'd rather you panic"?
+____
+
+An aircraft company discovered that it was cheaper to fly its planes with less fuel on board.
+The planes would be lighter and use less fuel and money was saved.
+On rare occasions however the amount of fuel was insufficient, and the plane would crash.
+This problem was solved by the engineers of the company by the development of a special OOF (out-of-fuel) mechanism.
+In emergency cases a passenger was selected and thrown out of the plane.
+(When necessary, the procedure was repeated.)  A large body of theory was developed and many publications were devoted to the problem of properly selecting the victim to be ejected.
+Should the victim be chosen at random?
+Or should one choose the heaviest person?
+Or the oldest?
+Should passengers pay in order not to be ejected, so that the victim would be the poorest on board?
+And if for example the heaviest person was chosen, should there be a special exception in case that was the pilot?
+Should first class passengers be exempted?
+Now that the OOF mechanism existed, it would be activated every now and then, and eject passengers even when there was no fuel shortage.
+The engineers are still studying precisely how this malfunction is caused.
+```
+
+In order to make decisions of who gets sacrificed to keep the system alive, a value called the badness is computed (which can be read from /proc/[pid]/oom_score) for each process on the system and the order of the killing is determined by this value.
+
+Two entries in the same directory can be used to promote or demote the likelihood of extermination.
+The value of oom_adj is the number of bits the points should be adjusted by.
+Normal users can only increase the badness;
+a decrease (a negative value for oom_adj) can only be specified by a superuser.
+The value of oom_adj_score directly adjusts the point value.
+Note that the use of oom_adj is deprecated.
+
+== Exercise 13.1: Invoking the OOM Killer
+
+Examine what swap partitions and files are present on your system by examining `/proc/swaps`.
+
+Turn off all swap with the command `$ sudo /sbin/swapoff -a`
+
+Make sure you turn it back on later, when we are done, with `$ sudo /sbin/swapon -a`
+
+Now we are going to put the system under increasing memory pressure.
+One way to do this is to exploit the stress-ng program we installed earlier, running it with arguments such as:
+
+`$ stress-ng -m 12 -t 10s`
+
+which would keep 3 GB busy for 10 seconds.
+You should see the OOM (Out of Memory) killer swoop in and try to kill processes in a struggle to stay alive.
+You can see what is going on by running
+
+`dmesg` or monitoring
+
+`/var/log/messages` or `/var/log/syslog`
+
+or through graphical interfaces that expose the system logs.
+Who gets clobbered first?
+
+``` ubuntu@ip-172-31-21-230:~$ cat /proc/swaps Filename				Type		Size	Used	Priority ubuntu@ip-172-31-21-230:~$
+
+ubuntu@ip-172-31-21-230:~$ free -m               total        used        free      shared  buff/cache   available Mem:            978         173         160           1         644         638 Swap:             0           0           0 ubuntu@ip-172-31-21-230:~$
+
+```

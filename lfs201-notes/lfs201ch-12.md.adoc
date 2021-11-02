@@ -1,0 +1,201 @@
+:doctype: book
+
+Chapter 12 - Process Monitoring
+
+= Chapter 12 - Process Monitoring
+
+## Chapter 12 Introduction
+
+Keeping track of running (and sleeping) processes is an essential system administration task.
+The `ps` program has been a main tool for doing so in UNIX-based operating systems for decades.
+
+However, because the utility has a long and complicated history of being used differently in more than one operating system variety, it has a large assortment of options that can be applied with often confusing combinations.
+Another trusty tool is provided by `top`, which interactively monitors the system's state.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Use `ps` to view characteristics and statistics associated with processes.
+* Identify different `ps` output fields and customize the ps output.
+* Use `pstree` to get a visual description of the process ancestry and multi-threaded applications.
+* Use `top` to view system loads interactively.
+
+== Process Monitoring Tools
+
+In this section, we will concentrate on process monitoring.
+In order to do this, Linux administrators make use of many utilities, such as `ps`, `pstree` and `top`, all of which have long histories in UNIX-like operating systems.
+
+Once again, let us review the list of some of the main tools for process monitoring.
+### Utility	Purpose	Package - `top`	Process activity, dynamically updated	procps - `uptime`	How long the system is running and the average load	procps - `ps`	Detailed information about processes	procps - `pstree`	A tree of processes and their connections	psmisc (or pstree) - `mpstat`	Multiple processor usage	sysstat - `iostat`	CPU utilization and I/O statistics	sysstat - `sar` Display and collect information about system activity	sysstat - `numastat`	Information about NUMA (Non-Uniform Memory Architecture)	numactl - `strace`	Information about all system calls a process makes	strace
+
+The `/proc` filesystem can also be helpful in monitoring processes, as well as other items, on the system.
+
+== Viewing Process States with ps
+
+`ps` is a workhorse for displaying characteristics and statistics associated with processes, all of which are garnered from the /proc directory associated with the process.
+
+Some common choices of options are:
+
+`$ ps aux`
+
+`$ ps -elf`
+
+`$ ps -eL`
+
+`$ ps -C "bash"`
+
+This command utility has existed in all UNIX-like operating system variants, and that diversity is reflected in the complicated potpourri of options that the Linux version of ps accepts, which fall into three categories:
+
+. UNIX options, which must be preceded by -, and which may be grouped.
+. BSD options, which must not be preceded by -, and which may be grouped.
+. GNU long options, each of which must be preceded by --.
+
+Having all these possible options can make life rather confusing.
+Most system administrators tend to use one or two standard combinations for their daily use.
+
+You can see a typical usage with the BSD option format in the screenshot provided, where the aux option shows all processes.
+Commands which are surrounded by square brackets (as in [ksoftirqd/0]) are threads that exist totally within the kernel;
+if there is one for each CPU, the command is followed by the integer specifying the CPU it is running on.
+
+image::../../_resources/e09dc3c1b85e4d92b2fc0d4154a80a31.png[235486c0540e91658fd23b3fa22f516d.png]
+
+Most of the fields in the above example are self-explanatory.
+Of the others:
+
+* VSZ is the process' virtual memory size in KB.
+* RSS is the resident set size;
+the non-swapped physical memory a task is using in KB.
+* STAT describes the state of the process;
+in our example we see only S for sleeping, or R for running.
+The additional character in the state (where it exists) can be:
+ ** < for high priority (not nice)
+ ** N for low priority (nice)
+ ** L for having pages locked in memory
+ ** s for session leader
+ ** l for multi-threaded
+ ** '+' for being in the foreground process group.
+
+Adding the f option will show how processes connect by ancestry, as in:
+
+`$ ps auxf` image:../../_resources/a4ec8781a150495499cc254c8d71bf56.png[dc145bc00cf29f131caf2ade7cfa2c2f.png]
+
+== Customizing the ps Output
+
+If you use the -o option, followed by a comma-separated list of field identifiers, you can print out a customized list of ps fields:
+
+* pid: Process ID number
+* uid: User ID number
+* cmd: Command with all arguments
+* cputime: Cumulative CPU time
+* pmem: Ratio of the process's resident set size to the physical memory on the machine, expressed as a percentage.
+
+You can see an example in the screenshot below.
+You can consult the ps man page for many other output options.
+
+image::../../_resources/86458fe22bc94e608c734c954459ab12.png[706fc41f15ac427290f305dead8e3a71.png]
+
+You can see a typical usage with the UNIX option format in the screenshot provided.
+Note that it is now showing the Parent Process ID (PPID) and the niceness (NI).
+You may observe that many processes show PPID=2 in this example (taken from RHEL 7 and using systemd) an internal kernel process, kthreadd, which is designed to adopt children when the parent process dies.
+In older kernels and systems, you would see PPID=1 for sbin/init, but it is really the same thing going on.
+
+image::../../_resources/f1fa5d542b684e19909212899815dee1.png[51ec5a9ba5af402f4931151d132d31c0.png]
+
+Some common selection options in the UNIX format are:
+
+* -A or -e: Select all processes
+* -N: Negate selection (means do the opposite)
+* -C: Select by command name
+* -G: Select by real group ID (also supports names)
+* -U: Select by real user ID (also supports names).
+
+== Using pstree
+
+`pstree` gives a visual description of the process ancestry and multi-threaded applications:
+
+``` $ pstree -aAp 2408
+
+bash,2408 |-emacs,24998 pmonitor.tex |  |-\{emacs},25002 |  '-\{emacs},25003 |-evince,18036 LFS201-SLIDES.pdf |  |-\{evince},18040 |  |-\{evince},18046 |  '-\{evince},18047 ```
+
+Consult the man page for pstree for an explanation of many options;
+in the above we have chosen just to show information for pid=2408.
+
+Note that one of its child processes (evince, pid=18036) has three children of its own.
+Another way to see that is:
+
+``` $ ls -l /proc/18036/task
+
+total 0 dr-xr-xr-x 5 coop coop 0 Sep 11 07:15 18036 dr-xr-xr-x 5 coop coop 0 Sep 11 07:15 18040 dr-xr-xr-x 5 coop coop 0 Sep 11 07:15 18046 dr-xr-xr-x 5 coop coop 0 Sep 11 07:15 18047 ``` ## top
+
+When you want to know what the system is spending its time on, the first tool you often use is `top`.
+The screenshot shows you what you can see when using `top` without arguments.
+By default, top refreshes itself every 3.0 seconds.
+
+`top` is an ancient utility and has a ton of options, as well as interactive commands triggered when certain keys are pressed.
+For example, if you hit 1, each CPU is shown separately, and if you hit i, only active processes are shown.
+You can see what doing both gives you in the screenshot.
+
+image::../../_resources/be6547d72df946d980d5f0064cf5168c.png[56dbf0a927ad751dd1213a577cf9b345.png]
+
+You have a lot of control over how processes are sorted and which fields are displayed;
+there are many others besides the defaults.
+For example, hitting *h* or *?* gives a brief list of interactive commands and `q` exits.
+
+Furthermore, you can kill a task by hitting *k*, or *renice* it (change its priority) with *r*.
+
+Doing `man top` will give you extensive documentation on configuration possibilities, options, and interactive possibilities.
+
+Note that there are popular alternatives to the standard top program, some of which have more visual interfaces and/or additional information, such as htop, ntop and atop.
+And most Linux distributions have a graphical system monitor (such as gnome-system-monitor or ksysguard) which has a top-like display window that can be shown.
+
+== Exercise 12.1: Processes
+
+. Run ps with the options -ef.
+Then run it again with the options aux.
+Note the differences in the output.
+. Run ps so that only the process ID, priority, nice value, and the process command line are displayed.
+. Start a new bash session by typing bash at the command line.
+Start another bash session using the nice command but this time giving it a nice value of 10.
+. Run ps as in step 2 to note the differences in priority and nice values.
+Note the process ID of the two bash sessions.
+. Change the nice value of one of the bash sessions to 15 using renice . Once again, observe the change in priority and nice values.
+. Run top and watch the output as it changes.
+Hit q to stop the program.
+
+``` tom@aur6a:~$ ps aux USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND root           1  0.0  0.0 167788 11476 ?
+Ss   Feb06   0:04 /sbin/init splash root           2  0.0  0.0      0     0 ?
+S    Feb06   0:00 [kthreadd] root           3  0.0  0.0      0     0 ?
+I<   Feb06   0:00 [rcu_gp] root           4  0.0  0.0      0     0 ?
+I<   Feb06   0:00 [rcu_par_gp] \...
+tom        34675  0.1  0.5 2435272 89104 ?
+Sl   19:30   0:00 /usr/lib/firefox/firefox -contentproc - root       34738  0.0  0.0      0     0 ?
+I    19:33   0:00 [kworker/6:1] tom        34740  0.0  0.0  21268  3432 pts/1    R+   19:33   0:00 ps aux tom@aur6a:~$
+
+tom@aur6a:~$ ps -ef UID          PID    PPID  C STIME TTY          TIME CMD root           1       0  0 Feb06 ?
+00:00:04 /sbin/init splash root           2       0  0 Feb06 ?
+00:00:00 [kthreadd] root           3       2  0 Feb06 ?
+00:00:00 [rcu_gp] root           4       2  0 Feb06 ?
+00:00:00 [rcu_par_gp] root           6       2  0 Feb06 ?
+00:00:00 [kworker/0:0H-events_highpri] \...
+root       34738       2  0 19:33 ?
+00:00:00 [kworker/6:1] tom        34780   30634  0 19:37 pts/1    00:00:00 ps -ef
+
+tom@aur6a:~$ ps -o pid,priority,cmd     PID PRI CMD   30634  20 /bin/bash   35017  20 ps -o pid,priority,cmd tom@aur6a:~$ ps -eo "%p %n %c"     PID  NI COMMAND       1   0 systemd       2   0 kthreadd       3 -20 rcu_gp       4 -20 rcu_par_gp       6 -20 kworker/0:0H-events_highpri       9 -20 mm_percpu_wq ```
+
+== Exercise 12.2: Monitoring Process States
+
+. Use dd to start a background process which reads from /dev/urandom and writes to /dev/null.
+. Check the process state.
+What should it be?
+. Bring the process to the foreground using the fg command.
+Then hit Ctrl-Z.
+What does this do?
+Look at the process state again, what is it?
+. Run the jobs program.
+What does it tell you?
+. Bring the job back to the foreground, then terminate it using kill from another window.
+
+``` tom@aur6a:~$ dd if=/dev/urandom of=/dev/null & [1] 35611 tom@aur6a:~$
+
+tom@aur6a:~$ dd if=/dev/urandom of=/dev/null & [1] 35611 tom@aur6a:~$ ps -C dd -o pid,stat,priority     PID STAT PRI   35611 R     20 tom@aur6a:~$ fg dd if=/dev/urandom of=/dev/null ` * * * ` tom@aur6a:~$ ps -C dd -o pid,stat,priority     PID STAT PRI   35611 R+    20 tom@aur6a:~$ kill 35611 tom@aur6a:~$ ```

@@ -1,0 +1,304 @@
+:doctype: book
+
+Chapter_8__-_Yum__(Yellow_Dog_Updater,_Modified)
+
+= Chapter 8 - Yum (Yellow Dog Updater, Modified)
+
+Created Wednesday 27 January 2021
+
+== Chapter 8 Introduction
+
+The yum program provides a higher level of intelligent services for using the underlying rpm program.
+It can automatically resolve dependencies when installing, updating and removing packages.
+It accesses external software repositories, synchronizing with them and retrieving and installing software as needed.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Discuss package installers and their characteristics.
+* Explain how yum works as a high-level package management system.
+* Configure yum to use repositories.
+* Discuss the queries yum can be used for.
+* Verify, install, remove, and upgrade packages using yum.
+* Learn about additional commands and how to install new repositories.
+* Understand how to use dnf, which has replaced yum on Fedora.
+
+== Package Installers
+
+The lower-level package utilities such as rpm and dpkg deal with the details of installing specific software package files and managing already installed software.
+
+The higher-level package management systems (such as yum, dnf, apt and zypper) work with databases of available software and incorporate the tools needed to find, install, update, and uninstall software in a highly intelligent fashion.
+They:
+
+* Can use both local and remote repositories as a source to install and update binary, as well as source software packages.
+* Are used to automate the install, upgrade, and removal of software packages.
+* Resolve dependencies automatically.
+* Save time because there is no need to either download packages manually or search out dependency information separately.
+
+The software repositories are provided by distributions and other independent software providers.
+The package installers maintain databases of available software derived from catalogs kept by the repositories.
+Unlike the low-level package tools, they have the ability to find and install dependencies automatically, which is a critical feature.
+
+In this section, we will talk about yum and dnf;
+we will get to zypper and apt next.
+
+yum provides a frontend to rpm.
+Its primary task is to fetch packages from multiple remote repositories and resolve dependencies among packages.
+It is used by the majority (but not all) of distributions that use rpm, including RHEL, CentOS, Scientific Linux and Fedora.
+
+== What is Yum?
+
+yum caches information and databases to speed up performance.
+To remove some or all cached information, you can run the command:
+
+`$ yum clean [ packages | metadata | expire-cache | rpmdb | plugins | all ]`
+
+yum has a number of modular extensions (plugins) and companion programs that can be found under `/usr/bin/yum*` and `/usr/sbin/yum*`.
+
+We will concentrate on the command line use of yum and not consider the graphical interfaces distributions provide.
+
+Repository configuration files are kept in `/etc/yum.repos.d/` and have a `.repo` extension.
+For example, on one RHEL 7 system we have: image:../../_resources/6f8d4fa32a3549b58b89d84d0d728d17.png[9aa7b8c1c418fbff24015c03479dccc7.png]
+
+A very simple repository file might look like:
+
+[repo-name]     name=Description of the repository     baseurl= http://somesystem.com/path/to/repo     enabled=1
+
+More complicated examples can be found in /etc/yum.repos.d and it would be a good idea to examine them.
+
+You can toggle the use of a particular repository on or off by changing the value of enabled to 0 or 1, or using the --disablerepo=somerepo and --enablerepo=somerepo options when using yum.
+
+You can (but should not) also turn off integrity checking with the gpgcheck variable.
+
+Below is a section of an actual Redhat 8 repo file:
+
+`+ [rhel-8-appstream-rhui-rpms] name=Red Hat Enterprise Linux 8 for $basearch - AppStream from RHUI (RPMs) mirrorlist=https://rhui3.REGION.aws.ce.redhat.com/pulp/mirror/content/dist/rhel8 /rhui/$releasever/$basearch/appstream/os enabled=1 gpgcheck=1 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release sslverify=1 sslclientkey=/etc/pki/rhui/content-rhel8.key sslclientcert=/etc/pki/rhui/product/content-rhel8.crt sslcacert=/etc/pki/rhui/cdn.redhat.com-chain.crt +`
+
+== Queries
+
+Like rpm, yum can be used for queries such as searches;
+however, it can search not just what is present on the local system, it can also inquire about remote repositories.
+
+=== Search for packages with keyword in name:
+
+` $ sudo yum search keyword $ sudo yum list "*keyword*" `
+
+These two commands give somewhat different information.
+The first one tells more about the packages, while the second one makes it clearer what is installed and what else is available.
+
+=== Display information about a package:
+
+`$ sudo yum info package`
+
+Information includes size, version, what repository it came from, a source URL, and a longer description.
+Wildcards can be given, as in yum info "libc*", for this and most yum commands.
+Note that the package need not be installed, unlike queries made with rpm -q.
+
+=== List all packages, or just those installed, available, or updates that have not yet been installed:
+
+`$ sudo yum list [installed | updates | available ]`
+
+=== Show information about package groups installed or available, etc.:
+
+` $ sudo yum grouplist [group1] [group2] $ sudo yum groupinfo group1 [group2] `
+
+=== Show packages that contain a certain file name:
+
+`$ sudo yum provides /path/to/file`
+
+Please note the need to use at least one / in the file name, which can be confusing.
+
+` [ec2-user@ip-172-31-27-213 ~]$ sudo yum search logrotate Last metadata expiration check: 6 days, 22:03:14 ago on Tue 26 Jan 2021 01:41:03 AM UTC.
+======================= Name Exactly Matched: logrotate ======================== logrotate.x86_64 : Rotates, compresses, removes and mails system log files [ec2-user@ip-172-31-27-213 ~]$ sudo yum list "*logrotate*" Red Hat Update Infrastructure 3 Client Configur  13 kB/s | 2.1 kB     00:00     Red Hat Enterprise Linux 8 for x86_64 - AppStre  17 kB/s | 2.8 kB     00:00     Red Hat Enterprise Linux 8 for x86_64 - AppStre  16 MB/s |  25 MB     00:01     Red Hat Enterprise Linux 8 for x86_64 - BaseOS   14 kB/s | 2.4 kB     00:00     Red Hat Enterprise Linux 8 for x86_64 - BaseOS   37 MB/s |  27 MB     00:00     Installed Packages logrotate.x86_64                     3.14.0-4.el8                      @anaconda [ec2-user@ip-172-31-27-213 ~]$ `  ``` [ec2-user@ip-172-31-27-213 ~]$ sudo yum info logrotate Last metadata expiration check: 0:01:23 ago on Mon 01 Feb 2021 11:44:59 PM UTC.
+Installed Packages Name         : logrotate Version      : 3.14.0 Release      : 4.el8 Architecture : x86_64 Size         : 142 k Source       : logrotate-3.14.0-4.el8.src.rpm Repository   : @System From repo    : anaconda Summary      : Rotates, compresses, removes and mails system log files URL          : https://github.com/logrotate/logrotate License      : GPLv2+ Description  : The logrotate utility is designed to simplify the administration              : of log files on a system which generates a lot of log files.
+: Logrotate allows for the automatic rotation compression, removal              : and mailing of log files.
+Logrotate can be set to handle a log              : file daily, weekly, monthly or when the log file gets to a              : certain size.
+Normally, logrotate runs as a daily cron job.
+:               : Install the logrotate package if you need a utility to deal with              : the log files on your system.
+
+[ec2-user@ip-172-31-27-213 ~]$ ```
+
+` ec2-user@ip-172-31-27-213 ~]$ sudo yum list installed Installed Packages NetworkManager.x86_64           1:1.26.0-9.el8_3                @anaconda        NetworkManager-libnm.x86_64     1:1.26.0-9.el8_3                @anaconda        NetworkManager-team.x86_64      1:1.26.0-9.el8_3                @anaconda        NetworkManager-tui.x86_64       1:1.26.0-9.el8_3                @anaconda        acl.x86_64                      2.2.53-1.el8                    @anaconda        audit.x86_64                    3.0-0.17.20191104git1c2f876.el8 @anaconda        audit-libs.x86_64               3.0-0.17.20191104git1c2f876.el8 @anaconda        authselect.x86_64               1.2.1-2.el8                     @anaconda `
+
+== Verifying Packages
+
+Package verification requires installation of the yum-plugin-verify package.
+So, you might have to do:
+
+`$ sudo yum install yum-plugin-verify`
+
+Note that this is a yum plugin, not an executable.
+There are many other plugins available for yum, which extend the possible set of commands and arguments it can take.
+
+=== To verify a package, giving the most information:
+
+`$ sudo yum verify [package]`
+
+=== To mimic rpm -V exactly:
+
+`$ sudo yum verify-rpm [package]`
+
+=== To list all differences, including configuration files:
+
+`$ sudo yum verify-all [package]`
+
+Without arguments, the above commands will verify all packages installed on the system.
+
+By default, the verification commands ignore configuration files which may change through normal and safe usage.
+There are some other options;
+see man yum-verify.
+
+==== NOTE: I could not get any of the yum/dnf verify commands to work on my rh8 system in aws. May need to revert to rpm -V.
+
+== Installing/Removing/Upgrading Packages
+
+Next, let's take a look at some examples of commonly performed operations.
+
+=== Install one or more packages from repositories, resolving and installing any necessary dependencies:
+
+`$ sudo yum install package1 [package2]`
+
+=== Install from a local rpm:
+
+`$ sudo yum localinstall package-file`
+
+This is not quite the same as
+
+`$ rpm -i package-file`
+
+because it will attempt to resolve dependencies by accessing remote repositories.
+
+=== Install a specific software group from a repository, resolving and installing any necessary dependencies for each package in the group:
+
+`$ sudo yum groupinstall group-name`
+
+or
+
+`$ sudo yum install @group-name`
+
+=== Remove packages from the system:
+
+`$ sudo yum remove package1 [package2]`
+
+You must be careful with package removal, as yum will not only remove requested packages, but all packages that depend on them!
+This may not be what you want, so never run yum remove with the -y option, which assumes automatic confirmation of removal.
+
+=== Update a package from a repository:
+
+`$ sudo yum update [package]`
+
+If no package name is given, all packages are updated.
+
+During installation (or update), if a package has a configuration file which is updated, it will rename the old configuration file with an .rpmsave extension.
+If the old configuration file will still work with the new software, it will name the new configuration file with an .rpmnew extension.
+You can search for these filename extensions (almost always in the /etc subdirectory tree) to see if you need to do any reconciliation, by doing:
+
+`$ sudo find /etc -name "*.rpm*"`
+
+This is the same behavior the more naked underlying rpm utility exhibits, but we mention it here for reference.
+
+== Additional yum Commands
+
+There is no shortage of additional capabilities for yum, according to what plugins are installed.
+You can list them all with:
+
+`$ sudo yum list "yum-plugin*"`
+
+=== Show a list of all enabled repositories:
+
+`$ sudo yum repolist`
+
+=== Initiate an interactive shell in which to run multiple YUM commands:
+
+`$ sudo yum shell [text-file]`
+
+If text-file is given, yum will read and execute commands from that file instead of from the terminal.
+
+=== Download packages, but do not install them; just store them under the /var/cache/yum directory, or another directory you can specify:
+
+`$ sudo yum install --downloadonly package`
+
+or you can type "d" instead of "y" or "n" when prompted after issuing an install command.
+The package(s) will be downloaded under /var/cache/yum in a location depending on the repository from which the download proceeds, unless the --downloaddir= option is used.
+Any other necessary packages will also be downloaded to satisfy dependencies.
+
+You can view the history of yum commands, and, with the correct options, even undo or redo previous commands:
+
+`$ sudo yum history`
+
+== dnf
+
+dnf is intended to be a next generation replacement for yum, and will underlie yum in RHEL 8.
+
+You can gradually learn to use dnf on Fedora systems because it accepts the subset of yum commands that take care of the majority of day-to-day tasks, and points out at each use of yum that has a dnf equivalent.
+
+To learn more, see https://docs.fedoraproject.org/en-US/quick-docs/dnf/[Using the DNF software package manager] and https://dnf.readthedocs.io/en/latest/[DNF, the next-generation replacement for yum].
+
+== Exercise 8.1: Basic YUM Commands
+
+. Check to see if there are any available updates for your system.
+. Update a particular package.
+. List all installed kernel-related packages, and list all installed or available ones.
+. Install the httpd-devel package, or anything else you might not have installed yet.
+Doing a simple `$ sudo yum list` will let you see a complete list;
+you may want to give a wildcard argument to narrow the list.
+
+` [ec2-user@ip-172-31-27-213 ~]$ sudo dnf list updates Last metadata expiration check: 0:00:32 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+[ec2-user@ip-172-31-27-213 ~]$ sudo dnf list installed *kernel* Installed Packages kernel.x86_64                4.18.0-240.1.1.el8_3       @anaconda                kernel.x86_64                4.18.0-240.10.1.el8_3      @rhel-8-baseos-rhui-rpms kernel-core.x86_64           4.18.0-240.1.1.el8_3       @anaconda                kernel-core.x86_64           4.18.0-240.10.1.el8_3      @rhel-8-baseos-rhui-rpms kernel-modules.x86_64        4.18.0-240.1.1.el8_3       @anaconda                kernel-modules.x86_64        4.18.0-240.10.1.el8_3      @rhel-8-baseos-rhui-rpms kernel-tools.x86_64          4.18.0-240.10.1.el8_3      @rhel-8-baseos-rhui-rpms kernel-tools-libs.x86_64     4.18.0-240.10.1.el8_3      @rhel-8-baseos-rhui-rpms [ec2-user@ip-172-31-27-213 ~]$ sudo dnf list available *kernel* Last metadata expiration check: 0:01:50 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+Available Packages abrt-addon-kerneloops.x86_64    2.10.9-20.el8         rhel-8-appstream-rhui-rpms kernel-abi-whitelists.noarch    4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-cross-headers.x86_64     4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-debug.x86_64             4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-debug-core.x86_64        4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-debug-devel.x86_64       4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-debug-modules.x86_64     4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-debug-modules-extra.x86_64                                 4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-devel.x86_64             4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-doc.noarch               4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-headers.x86_64           4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-modules-extra.x86_64     4.18.0-240.10.1.el8_3 rhel-8-baseos-rhui-rpms    kernel-rpm-macros.noarch        123-1.el8             rhel-8-appstream-rhui-rpms kernelshark.x86_64              2.7-8.el8             rhel-8-appstream-rhui-rpms libreport-plugin-kerneloops.x86_64                                 2.9.5-15.el8          rhel-8-appstream-rhui-rpms texlive-l3kernel.noarch         7:20180414-19.el8     rhel-8-appstream-rhui-rpms [ec2-user@ip-172-31-27-213 ~]$ sudo dnf list *vim* Last metadata expiration check: 0:02:24 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+Installed Packages vim-minimal.x86_64           2:8.0.1763-15.el8        @anaconda                  Available Packages vim-X11.x86_64               2:8.0.1763-15.el8        rhel-8-appstream-rhui-rpms vim-common.x86_64            2:8.0.1763-15.el8        rhel-8-appstream-rhui-rpms vim-enhanced.x86_64          2:8.0.1763-15.el8        rhel-8-appstream-rhui-rpms vim-filesystem.noarch        2:8.0.1763-15.el8        rhel-8-appstream-rhui-rpms [ec2-user@ip-172-31-27-213 ~]$ `
+
+== Exercise 8.2: Using yum to Find Information About a Package
+
+Using yum (and not rpm directly), find: 1.
+All packages that contain a reference to bash in their name or description.
+2.
+Installed and available bash packages.
+3.
+The package information for bash.
+4.
+The dependencies for the bash package.
+Try the commands you used above both as root and as a regular user.
+Do you notice any difference?
+
+` [ec2-user@ip-172-31-27-213 ~]$ sudo dnf list *bash* Last metadata expiration check: 0:09:46 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+Installed Packages bash.x86_64                       4.4.19-12.el8       @anaconda                  Available Packages bash-completion.noarch            1:2.7-5.el8         rhel-8-baseos-rhui-rpms    bash-doc.x86_64                   4.4.19-12.el8       rhel-8-baseos-rhui-rpms    libguestfs-bash-completion.noarch 1:1.40.2-25.module+el8.3.0+7421+642fe24f                                                       rhel-8-appstream-rhui-rpms libvirt-bash-completion.x86_64    6.0.0-28.module+el8.3.0+7827+5e65edd7                                                       rhel-8-appstream-rhui-rpms nbdkit-bash-completion.noarch     1.16.2-4.module+el8.3.0+6922+fd575af8                                                       rhel-8-appstream-rhui-rpms pcp-pmda-bash.x86_64              5.1.1-3.el8         rhel-8-appstream-rhui-rpms [ec2-user@ip-172-31-27-213 ~]$ sudo dnf search *bash* Last metadata expiration check: 0:12:01 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+======================== Name & Summary Matched: *bash* ======================== bash-completion.noarch : Programmable completion for Bash bash-doc.x86_64 : Documentation files for bash libguestfs-bash-completion.noarch : Bash tab-completion scripts for libguestfs                                   : tools libvirt-bash-completion.x86_64 : Bash completion script nbdkit-bash-completion.noarch : Bash tab-completion for nbdkit pcp-pmda-bash.x86_64 : Performance Co-Pilot (PCP) metrics for the Bash shell ============================= Name Matched: *bash* ============================= bash.x86_64 : The GNU Bourne Again shell =========================== Summary Matched: *bash* ============================ python3-argcomplete.noarch : Bash tab completion for argparse [ec2-user@ip-172-31-27-213 ~]$ `
+
+== Exercise 8.3: Managing Groups of Packages with yum
+
+Please Note On RHEL you may get some permission errors if you don't use sudo with some of the following commands, even when we are just getting information.
+
+The yum/dnf command provides the ability to manage groups of packages.
+
+. Use the following command to list all package groups available on your system: `$ yum grouplist`
+. Identify the Backup Client group and generate the information about this group using the command `$ yum groupinfo "Backup Client"`
+. Install using: $ sudo yum groupinstall "Backup Client"
+. Identify  a  package  group  that's  currently  installed  on  your  system  and  that  you  don't  need.
+Remove  it  using yum groupremove as in: `$ sudo yum groupremove "Backup Client"` Note you will be prompted to confirm removal so you can safely type the command to see how it works.
+You may find that the groupremove does not remove everything that was installed;
+whether this is a bug or a feature can be discussed.
+
+` [ec2-user@ip-172-31-27-213 ~]$ sudo dnf grouplist Last metadata expiration check: 0:34:56 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+Available Environment Groups:    Server with GUI    Server    Minimal Install    Workstation    Virtualization Host    Custom Operating System Available Groups:    Container Management    .NET Core Development    RPM Development Tools    Graphical Administration Tools    System Tools    Headless Management    Scientific Support    Smart Card Support    Security Tools    Legacy UNIX Compatibility    Network Servers    Development Tools [ec2-user@ip-172-31-27-213 ~]$ `
+
+``` [ec2-user@ip-172-31-27-213 ~]$ sudo dnf groupinfo 'System Tools' Last metadata expiration check: 0:37:00 ago on Tue 02 Feb 2021 12:17:17 AM UTC.
+
+Group: System Tools  Description: This group is a collection of various tools for the system, such as the client for connecting to SMB shares and tools to monitor network traffic.
+Default Packages:    NetworkManager-libreswan    chrony    cifs-utils    libreswan    nmap    openldap-clients    samba-client    setserial    tigervnc    tmux    xdelta    zsh  Optional Packages:    PackageKit-command-not-found    aide    amanda-client    arpwatch    autofs    chrpath    convmv    createrepo_c    environment-modules    freerdp    fuse    gpm    gssdp    gupnp    hardlink    iotop    lzop    mc    mrtg    mtx    net-snmp-utils    oddjob    oddjob-mkhomedir    rear    speech-dispatcher    speech-dispatcher-espeak-ng    sysstat    wireshark    x3270-x11 [ec2-user@ip-172-31-27-213 ~]$ ```
+
+== Exercise 8.4: Adding a New yum Repository
+
+According to its authors (at http://www.webmin.com/index.htm): "`Webmin is a web-based interface for system administration for Unix.
+Using any modern web browser, you can setup user accounts, Apache, DNS, file sharing and much more.
+Webmin removes the need to manually edit Unix configuration files like /etc/passwd, and lets you manage a system from the console or remotely.`"
+
+We are going to create a repository for installation and upgrade.
+While we could simply go the download page and get the current rpm, that would not automatically give us any upgrades.
+1.
+Create a new repository file called webmin.repo in the /etc/yum.repos.d directory.
+It should contain the following: `+ webmin.repo [Webmin] name=Webmin Distribution Neutral baseurl=http://download.webmin.com/download/yum mirrorlist=http://download.webmin.com/download/yum/mirrorlist enabled=1 gpgcheck=0 +` (Note you can also cut and paste the contents from http://www.webmin.com/download.html.)
+
+. Install the webmin package.
+`$ sudo yum install webmin`

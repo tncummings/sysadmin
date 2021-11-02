@@ -1,0 +1,511 @@
+:doctype: book
+
+Chapter 41 - Linux Security Modules
+
+= Chapter 41 - Linux Security Modules
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Understand how the Linux Security Module framework works and how it is deployed.
+* List the various *LSM* implementations available.
+* Delineate the main features of *SELinux*.
+* Explain the different modes and policies available.
+* Grasp the importance of contexts and how to get and set them.
+* Know how to use the important SELinux utility programs.
+* Gain some familiarity with *AppArmor*.
+
+== What Are Linux Security Modules?
+
+A modern computer system must be made secure, but needs vary according to sensitivity of data, number of users with accounts, exposure to outside networks, legal requirements and other factors.
+Responsibility for enabling good security controls falls both on application designers and the Linux kernel developers and maintainers.
+Of course, users have to follow good procedures as well, but on a well-run system, non-privileged users should have very limited ability to expose the system to security violations.
+In this section, we are concerned with how the Linux kernel enhances security through the use of the Linux Security Modules framework, particularly with the deployment of SELinux.
+The idea is to implement mandatory access controls over the variety of requests made to the kernel, but to do so in a way that:
+
+* Minimizes changes to the kernel
+* Minimizes overhead on the kernel
+* Permits flexibility and choice between different implementations, each of which is presented as a self-contained LSM (Linux Security Module).
+
+The basic idea is to hook system calls;
+*insert code whenever an application requests a transition to kernel (system) mode in order to accomplish work that requires enhanced abilities;* this code makes sure permissions are valid, malicious intent is protected against, etc.
+It does this by invoking security-related functional steps before and/or after a system call is fulfilled by the kernel.
+
+== Main LSM Choices
+
+For a long time, the only enhanced security model implemented was SELinux.
+When the project was first floated upstream in 2001 to be included directly in the kernel, there were objections about using only one approach to enhanced security.
+
+As a result, the LSM approach was adopted, where alternative modules to SELinux could be used as they were developed and was incorporated into the Linux kernel in 2003.
+
+The current LSM implementations are:
+
+* SELinux
+* AppArmor
+* Smack
+* Tomoyo image:../../_resources/4a556b777a614700ab07f2c49fa6756e.png[27746bd1d5a55856dae16f6f1d045b33.png]
+
+LSMs are now considered as either major or minor when configuring their combination.
+
+We will concentrate primarily on SELinux and secondarily on AppArmor in order of usage volume.
+
+See https://www.starlab.io/blog/a-brief-tour-of-linux-security-modules["A Brief Tour of Linux Security Modules"] by Shaun Ruffell for a nice review of the mechanism and choices.
+
+== SELinux Overview
+
+SELinux was originally developed by the United States NSA (National Security Administration) and has been integral to RHEL for a very long time, which has brought it a large usage base.
+
+Operationally, SELinux is a set of security rules that are used to determine which processes can access which files, directories, ports, and other items on the system.
+
+It works with three conceptual quantities.
+
+*_Contexts_*: Contexts are labels to files, processes and ports.
+Examples of contexts are SELinux user, role and type.
+
+*_Rules_*: Rules describe access control in terms of contexts, processes, files, ports, users, etc.
+
+*_Policies_*: Policies are a set of rules that describe what system-wide access control decisions should be made by SELinux.
+
+A SELinux context is a name used by a rule to define how users, processes, files and ports interact with each other.
+As the default policy is to deny any access, rules are used to describe allowed actions on the system.
+
+Additional online documentation can be found in the https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/selinux_users_and_administrators_guide/index[SELinux User's and Administrator's Guide].
+
+== SELinux Enforcement Modes
+
+SELinux can be run under one of three modes.
+
+*_Enforcing_*: All SELinux code is operative and access is denied according to policy.
+All violations are audited and logged.
+image:../../_resources/a57913377e8b47c39f95998c6c30f3e3.png[b9f292573f6b0b57e764e779a3005c7c.png]
+
+*_Permissive_*: Enables SELinux code, but only audits and warns about operations that would be denied in enforcing mode.
+image:../../_resources/828d0dd8973b451bb073322b511dcbe9.png[d3c01b759dcab5ec0f973f9f67edb101.png]
+
+These modes are selected (and explained) in `/etc/sysconfig/selinux` (CentOS and openSUSE) or `/etc/selinux/config` (Ubuntu).
+
+The *`sestatus`* utility can display the current mode and policy.
+
+== `getenforce` and `setenforce`
+
+To examine or set the current mode, you can use getenforce and setenforce:
+
+` $ getenforce Enforcing `
+
+` $ sudo setenforce Permissive $ getenforce Permissive `
+
+`setenforce` can be used to switch between enforcing and permissive modes on the fly while the system is in operation.
+However, changing in or out of the disabled mode cannot be done this way.
+
+While setenforce allows you to switch between permissive and enforcing modes, it does not allow you to disable SELinux completely.
+There are at least two different ways to disable SELinux:
+
+* *_Configuration file_*: Edit the SELinux configuration file (usually /etc/selinux/config) and set SELINUX=disabled.
+This is the default method and should be used to permanently disable SELinux.
+* *_Kernel parameter_*: Add selinux=0 to the kernel parameter list when rebooting.
+
+However, it is important to note that disabling SELinux on systems in which SELinux will be re-enabled is not recommended.
+It is preferable to use the permissive mode instead of disabling SELinux, so as to avoid relabeling the entire filesystem, which can be time-consuming.
+
+== SELinux Policies
+
+The same configuration file that sets the mode, usually `/etc/sysconfig/selinux`, also sets the SELinux policy.
+Multiple policies are allowed, but only one can be active at a time.
+Changing the policy may require a reboot of the system and a time-consuming re-labeling of filesystem contents.
+Each policy has files which must be installed under `etc/selinux/[SELINUXTYPE]`.
+
+* *_Targeted_*: The default policy in which SELinux is more restricted to targeted processes.
+User processes and init processes are not targeted, while network service processes are targeted.
+SELinux enforces memory restrictions for all processes, which reduces the vulnerability to buffer overflow attacks.
+* *_Minimum_*: A modification of the targeted policy where only selected processes are protected.
+* *_MLS_*: The Multi-Level Security policy is much more restrictive;
+all processes are placed in fine-grained security domains with particular policies.
+
+== Context Utilities
+
+As mentioned earlier, contexts are labels applied to files, directories, ports, and processes.
+Those labels are used to describe access rules.
+There are four SELinux contexts:
+
+. User
+. Role
+. Type
+. Level
+
+However, we will focus on type, which is the most commonly utilized context.
+The label naming convention determines that type context labels should end with _t, as in kernel_t.
+
+Use the -Z option to see the context:
+
+`$ ls -Z` `$ ps auZ`
+
+Use the chcon command to change context:
+
+`$ chcon -t etc_t somefile` `$ chcon --reference somefile someotherfile`
+
+``` $ ls -Z
+
+-rw-rw-r--.
+dog dog unconfined_u:object_r:user_home_t:s0 somefile ```
+
+``` $ chcon -t etc_t somefile $ ls -Z
+
+-rw-rw-r--.
+dog dog unconfined_u:object_r:etc_t:s0 somefile ```
+
+``` $ ls -Z
+
+-rw-rw-r--.
+dog dog unconfined_u:object_r:etc_t:s0 somefile -rw-rw-r--.
+dog dog unconfined_u:object_r:user_home_t:s0 somefile1 ```
+
+``` $ chcon --reference somefile somefile1 $ ls -Z
+
+-rw-rw-r--.
+dog dog unconfined_u:object_r:etc_t:s0 somefile -rw-rw-r--.
+dog dog unconfined_u:object_r:etc_t:s0 somefile1 ```
+
+== SELinux and Standard Commands
+
+Many standard command line commands, such as ls and ps, were extended to support SELinux, and corresponding sections were added to their man pages explaining the details.
+Often the parameter Z is passed to standard command line tools, as in:
+
+`+ $ ps axZ LABEL PID TTY STAT TIME COMMAND system_u:system_r:init_t:s0 1 ?
+Ss 0:04 /usr/lib/systemd/systemd --switched-root ...
+system_u:system_r:kernel_t:s0 2 ?
+S 0:00 [kthreadd] ...
+unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 2305 ?
+D 0:00 sshd: jimih@pts/0 unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 2306 pts/0 Ss 0:00 -bash ...
+system_u:system_r:httpd_t:s0 7490 ?
+Ss 0:00 /usr/sbin/httpd -DFOREGROUND system_u:system_r:httpd_t:s0 7491 ?
+S 0:00 /usr/sbin/httpd -DFOREGROUND ...
++`
+
+` $ ls -Z /home/ /tmp/ /home/: drwx------.
+jimih jimih unconfined_u:object_r:user_home_dir_t:s0 jimih /tmp/: -rwx------.
+root root system_u:object_r:initrc_tmp_t:s0 ks-script-c4ENhg drwx------.
+root root system_u:object_r:tmp_t:s0 systemd-private-0ofSvO -rw-------.
+root root system_u:object_r:initrc_tmp_t:s0 dnf.log `
+
+Other tools that were extended to support SELinux include cp, mv, and mkdir.
+
+Note that if you have disabled SELinux, no useful information is displayed in the related fields from these utilities.
+
+== Context Inheritance
+
+Newly created files inherit the context from their parent directory, but when moving files, it is the context of the source directory which may be preserved, which can cause problems.
+
+Continuing the previous example, we see the context of tmpfile was not changed by moving the file from /tmp to /home/jimih:
+
+` $ cd /tmp/ $ touch tmpfile $ ls -Z tmpfile -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_tmp_t:s0 tmpfile `
+
+` $ cd $ touch homefile $ ls -Z homefile -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_home_t:s0 homefile `
+
+` $ mv /tmp/tmpfile . $ ls -Z -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_home_t:s0 homefile -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_tmp_t:s0 tmpfile `
+
+The classical example in which moving files creates a SELinux issue is moving files to the DocumentRoot directory of the httpd server.
+On SELinux-enabled systems, the web server can only access files with the correct context labels.
+Creating a file in /tmp, and then moving it to the DocumentRoot directory, will make the file unaccessible to the httpd server until the SELinux context of the file is adjusted.
+
+== `restorecon`
+
+`restorecon` resets file contexts, based on parent directory settings.
+In the following example, restorecon resets the default label recursively for all files at the home directory:
+
+` $ ls -Z -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_home_t:s0 homefile -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_tmp_t:s0 tmpfile `
+
+`+ $ restorecon -Rv /home/jimih restorecon reset /home/jimih/tmpfile context \ unconfined_u:object_r:user_tmp_t:s0->unconfined_u:object_r:user_home_t:s0 +`
+
+` $ ls -Z -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_home_t:s0 homefile -rw-rw-r--.
+jimih jimih unconfined_u:object_r:user_home_t:s0 tmpfile `
+
+Note that the context for tmpfile has been reset to the default context for files created at the home directory.
+The type was changed from *user_tmp_t* to *user_home_t*.
+
+== `semanage`
+
+Another issue is how to configure the default context for a newly created directory.
+`semanage fcontext` (provided by the *policycoreutils-python package*) can change and display the default context of files and directories.
+Note that `semanage fcontext` only changes the default settings;
+it does not apply them to existing objects.
+This requires calling restorecon afterwards.
+For example:
+
+``` [root@rhel7 /]# mkdir /virtualHosts [root@rhel7 /]# ls -Z \...
+drwxr-xr-x.
+root root unconfined_u:object_r:default_t:s0 virtualHosts
+
+[root@rhel7 /]# semanage fcontext -a -t httpd_sys_content_t /virtualHosts [root@rhel7 /]# ls -Z \...
+drwxr-xr-x.
+root root unconfined_u:object_r:default_t:s0 virtualHosts
+
+[root@rhel7 /]# restorecon -RFv /virtualHosts restorecon reset /virtualHosts context unconfined_u:object_r:default_t:s0\->system_u:object_r:httpd_sys_content_t:s0
+
+[root@rhel7 /]# ls -Z drwxr-xr-x.
+root root system_u:object_r:httpd_sys_content_t:s0 virtualHosts ```
+
+The context change from default_t to httpd_sys_content_t is thus only applied after the call to restorecon.
+
+== Using SELinux Booleans
+
+SELinux policy behavior can be configured at runtime without rewriting the policy.
+This is accomplished by configuring SELinux Booleans, which are policy parameters that can be enabled and disabled:
+
+* `getsebool` - to see booleans
+* `setsebool` - to set booleans
+* `semanage boolean -l` - to see persistent boolean settings.
+
+You can see what you need to do to list all booleans of the current policy, including the current status and a short description in the screenshot below.
+
+`+ $ setsebool allow_ftpd_anon_write on $ getsebool allow_ftpd_anon_write   allow_ftpd_anon_write -> on $ semanage boolean -l | grep allow_ftpd_anon_write $ allow_ftpd_anon_write -> off +`
+
+Note not persistent.
+
+`+ $ setsebool -P allow_ftpd_anon_write on $ semanage boolean -l | grep allow_ftpd_anon_write   allow_ftpd_anon_write         -> on +`
+
+Now persistent.
+image:../../_resources/30e98efc0f2b4ffe87c7cc246d5be007.png[f6e383ea57f4ad716e3bfa46b1f7694f.png]
+
+== Monitoring SELinux Access
+
+SELinux comes with a set of tools that collect issues at run time, log these issues and propose solutions to prevent same issues from happening again.
+These utilities are provided by the *setroubleshoot-server* package.
+Here is an example of their use:
+
+`+ [root@rhel7 ~]# echo 'File created at /root' > rootfile [root@rhel7 ~]# mv rootfile /var/www/html/ [root@rhel7 ~]# wget -O - localhost/rootfile --2014-11-21 13:42:04-- http://localhost/rootfile Resolving localhost (localhost)...
+::1, 127.0.0.1 Connecting to localhost (localhost)|::1|:80...
+connected.
+HTTP request sent, awaiting response...
+403 Forbidden 2014-11-21 13:42:04 ERROR 403: Forbidden.
++`
+
+``` [root@rhel7 ~]# tail /var/log/messages Nov 21 13:42:04 rhel7 setroubleshoot: Plugin Exception restorecon Nov 21 13:42:04 rhel7 setroubleshoot: SELinux is preventing /usr/sbin/httpd from getattr access on the file . For complete SELinux messages.
+run sealert -l d51d34f9-91d5-4219-ad1e-5531e61a2dc3 Nov 21 13:42:04 rhel7 python: SELinux is preventing /usr/sbin/httpd from getattr access on the file . \....
+Do allow this access for now by executing #grep httpd /var/log/audit/audit.log | audit2allow -M mypol #semodule -i mypol.pp
+
+Additional Information: Source Context system_u:system_r:httpd_t:s0 Target Context unconfined_u:object_r:admin_home_t:s0 Target Objects [ file ] Source httpd Source Path /usr/sbin/httpd ```
+
+== AppArmor
+
+AppArmor is an LSM alternative to SELinux.
+Support for it has been incorporated in the Linux kernel since 2006.
+It has been used by SUSE, Ubuntu and other distributions.
+
+AppArmor:
+
+* Provides Mandatory Access Control (MAC)
+* Allows administrators to associate a security profile to a program which restricts its capabilities
+* Is considered easier (by some but not all) to use than SELinux
+* Is considered filesystem-neutral (no security labels required).
+
+AppArmor supplements the traditional UNIX Discretionary Access Control (DAC) model by providing Mandatory Access Control (MAC).
+
+In addition to manually specifying profiles, AppArmor includes a learning mode, in which violations of the profile are logged, but not prevented.
+This log can then be turned into a profile, based on the program's typical behavior.
+
+== Checking Status
+
+Distributions that come with AppArmor tend to enable it and load it by default.
+Note that the Linux kernel has to have it turned on as well, and, in most cases, only one LSM can run at a time.
+
+Assuming you have the AppArmor kernel module available, on a systemd-equipped system you can do:
+
+`$ sudo systemctl [start|stop|restart|status] apparmor`
+
+to change or inquire about the current state of operation, or do:
+
+`$ sudo systemctl [enable|disable} apparmor`
+
+to cause to be loaded or not loaded at boot.
+
+In order to see the current status, do:
+
+`+ $ sudo apparmor_status  apparmor module is loaded.
+25 profiles are loaded.
+25 profiles are in enforce mode.
+/sbin/dhclient ...
++`
+
+Profiles and processes are in either enforce or complain mode, directly analogous to SELinux's enforcing and permissive modes.
+Note that in the process, listing the PID is given:
+
+` $ ps aux | grep libvirtd root     787  0.0  0.9  527200  35936 ?
+Ssl  10:54 0:00 /usr/sbin/libvirtd student 3346  0.0  0.0   13696   2204 pts/16 S+   11:42 0:00 grep --color=auto libvirtd `
+
+== Modes and Profiles
+
+Profiles restrict how executable programs, which have pathnames on your system, such as `/usr/bin/evince`, can be used.
+
+Processes can be run in either of the two modes:
+
+. *_Enforce Mode_*: Applications are prevented from acting in ways which are restricted.
+Attempted violations are reported to the system logging files.
+This is the default mode.
+A profile can be set to this mode with aa-enforce.
+. *_Complain Mode_*: Policies are not enforced, but attempted policy violations are reported.
+This is also called the learning mode.
+A profile can be set to this mode with aa-complain.
+
+Linux distributions come with pre-packaged profiles, typically installed either when a given package is installed, or with an AppArmor package, such as apparmor-profiles.
+These profiles are stored in `/etc/apparmor.d`.
+
+When installing new software, new profiles can be created specific to any executables in the package.
+
+Exactly what AppArmor profiles are installed on your system depends on your selection of software packages.
+For example, on one particular Ubuntu system:
+
+`+ student@ubuntu: /etc/apparmor.d$ ls abstractions                usr.lib.dovecot.anvil            usr.lib.telepathy apache2.d                   usr.lib.dovecot.auth             usr.sbin.avahi-daemon bin.ping                    usr.lib.dovecot.config           usr.sbin.cups-brows ...
++`
+
+Full documentation on what can go in these files can be obtained by doing `man apparmor.d`.
+
+== AppArmor Utilities
+
+AppArmor has quite a few administrative utilities for monitoring and control.
+For example, on an openSUSE system:
+
+`+ $ rpm -qil apparmor-utils | grep bin /usr/bin/aa-easyprof /usr/sbin/aa-audit /usr/sbin/aa-autodep /usr/sbin/aa-cleanprof /usr/sbin/aa-complain /usr/sbin/aa-decode /usr/sbin/aa-disable /usr/sbin/aa-enforce /usr/sbin/aa-exec ....
+/usr/sbin/complain /usr/sbin/decode /usr/sbin/disable /usr/sbin/enforce ....
++`
+
+Note that many of these utilities can be invoked with either their short or long names;
+e.g.:
+
+`+ linux-llgn:/etc/apparmor.d # ls -l /usr/sbin/*complain -rwxr-xr-x 1 root root 1442 Oct 25 07:37 /usr/sbin/aa-complain* lrwxrwxrwx 1 root root   11 Nov 11 13:02 /usr/sbin/complain -> aa-complain* linux-llgn:/etc/apparmor.d # +` image:../../_resources/d154398523424f1cb47c87af75940e99.png[b855b7569107d3abf15da0372343e647.png]
+
+== Lab 41.1. SELinux Contexts
+
+. Verify SELinux is enabled and in enforcing mode, by executing getenforce and sestatus.
+If not, edit /etc/selinux/ config, reboot, and check again.
+. Install  the httpd package  (if  not  already  present)  which  provides  the Apache web  server,  and  then  verify  that  it  is working: ` $ sudo dnf install  httpd $ elinks http:/localhost ` (You can also use lynx or elinks etc.
+as the browser, or use your graphical browser such as firefox or chrome , in this and succeeding steps.)
+. As superuser, create a small file in /var/www/html: `$ sudo sh -c "echo file1 > /var/www/html/file1.html"`
+. Verify you can see it: `+$ elinks -dump http://localhost/file1.html+`
+
+``` [ec2-user@ip-172-31-27-213 ~]$ pwd /home/ec2-user [ec2-user@ip-172-31-27-213 ~]$ sudo vi ./file2.html [ec2-user@ip-172-31-27-213 ~]$ sudo mv file2.html /var/www/html/ [ec2-user@ip-172-31-27-213 ~]$ curl http://localhost/file2.html <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">+++<html>++++++<head>++++++<title>+++403 Forbidden+++</title>++++++</head>++++++<body>+++You don't have permission to access this resource.+++</body>++++++</html>+++
+
+[ec2-user@ip-172-31-27-213 ~]$ cd /var/www/html [ec2-user@ip-172-31-27-213 html]$ ls -Z file__html unconfined_u:object_r:httpd_sys_content_t:s0 file1.html         unconfined_u:object_r:user_home_t:s0 file2.html [ec2-user@ip-172-31-27-213 html]$ sudo chcon -t httpd_sys_content_t file2.html  [ec2-user@ip-172-31-27-213 html]$ ls -Z file__html unconfined_u:object_r:httpd_sys_content_t:s0 file1.html unconfined_u:object_r:httpd_sys_content_t:s0 file2.html [ec2-user@ip-172-31-27-213 html]$ curl http://localhost/file2.html <!doctype html>+++<html>++++++<head>++++++<title>+++Test file 2+++</title>++++++<meta name="description" content="2nd test file">++++++</meta>++++++<meta name="keywords" content="SELinux test 2 two">++++++</meta>++++++</head>++++++<body>+++Some content for test file 2.+++</body>++++++</html>+++
+
+[ec2-user@ip-172-31-27-213 html]$ ```
+
+== Lab 41.2: Exploring apparmor security
+
+On Ubuntu, the /bin/ping utility runs with SUID enabled.
+For this exercise, we will copy ping to ping-x and adjust the capabilities so the program functions.
+Then we will build an AppArmor profile, install and verify that nothing has changed.
+Modifying the AppArmor profile and adding capabilities will allow the program more functionality.
+
+. Make sure all necessary packages are installed: `student@ubuntu:˜$ sudo apt-get install apparm*`
+. Create a copy of ping (called ping-x) and verify it has no initial special permissions or capabilities.
+Furthermore, it cannot work when executed by student, a normal user: ` student@ubuntu:˜$ sudo cp /bin/ping /bin/ping-x student@ubuntu:˜$ sudo ls -l /bin/ping-x -rwxr-xr-x 1 root root 64424 Oct 17 10:12 /bin/ping-x student@ubuntu:˜$ sudo getcap /bin/ping-x student@ubuntu:˜$ student@ubuntu:˜$ ping-x -c3 -4 127.0.0.1 ping: socket: Operation not permitted `
+. Set the capabilities and re-try ping-x: ``` student@ubuntu:˜$ sudo setcap cap_net_raw+ep student@ubuntu:˜$ ping-x -c3 -4 127.0.0.1 PING 127.0.0.1 (127.0.0.1) 56(84) bytes of 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 /bin/ping-x data.
+time=0.092 ms time=0.093 ms time=0.086 ms
+
+--- 127.0.0.1 ping statistics --3 packets transmitted, 3 received, 0% packet loss, time 2034ms rtt min/avg/max/mdev = 0.086/0.090/0.093/0.008 ms
+
+The modified ping-x program now functions normally.
+```
+
+. Verify there is no pre-existing AppArmor profile for ping-x, but there is a profile for ping.
+Determine the status of the current ping program:
+
+`student@ubuntu:˜$ sudo aa-status`
+
+The output from aa-status is long, so we can grep for the interesting lines:
+
+` student@ubuntu:˜$ sudo aa-status | grep -e "ˆ[[:alnum:]]" -e ping apparmor module is loaded.
+87 profiles are loaded.
+51 profiles are in enforce mode.
+ping 36 profiles are in complain mode.
+17 processes have profiles defined.
+6 processes are in enforce mode.
+11 processes are in complain mode.
+0 processes are unconfined but have a profile defined.
+`
+
+We can see ping has a profile that is loaded and enabled for enforcement.
+
+. Next we will construct a new profile for ping-x.
+This step requires two terminal windows.
+The first window (window1)will be running the aa-genprof command.
+This will generate a AppArmor profile by scanning /var/log/syslog for AppArmor errors.
+The second window (window2) will be used to run ping-x.
+(See the man page for aa-genprof for additional information.)
+
+In window1: `+ student@ubuntu:˜$ sudo aa-genprof /bin/ping-x Writing updated profile for /bin/ping-x.
+Setting /bin/ping-x to complain mode.
+Before you begin, you may wish to check if a profile already exists for the application you wish to confine.
+See the following wiki page for more information: http://wiki.apparmor.net/index.php/Profiles Please start the application to be profiled in another window and exercise its functionality now.
+Once completed, select the "Scan" option below in order to scan the system logs for AppArmor events.
+For each AppArmor event, you will be given the opportunity to choose whether the access should be allowed or denied.
+Profiling: /bin/ping-x [(S)can system log for AppArmor events] / (F)inish +`
+
+In window2: ``` student@ubuntu:˜$ ping-x -c3 -4 127.0.0.1 PING 127.0.0.1 (127.0.0.1) 56(84) bytes of 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64
+
+data.
+time=0.099 ms time=0.120 ms time=0.114 ms
+
+--- 127.0.0.1 ping statistics --3 packets transmitted, 3 received, 0% packet loss, time 2041ms rtt min/avg/max/mdev = 0.099/0.111/0.120/0.008 ms ```
+
+In window1: The command ping-x has completed, we must now instruct aa-genprof to scan for the required information to be added to the profile.
+It may require several scans to collect all of the information for the profile.
+Enter S to scan: Reading log entries from /var/log/syslog.
+Updating AppArmor profiles in /etc/apparmor.d.
+Complain-mode changes: Profile: /bin/ping-x Capability: net_raw Severity: 8 [1 - capability net_raw,] (A)llow / [(D)eny] / (I)gnore / Audi(t) / Abo(r)t / (F)inish
+
+Enter A to allow the capability: Adding capability net_raw, to profile.
+Profile: /bin/ping-x Network Family: inet Socket Type: raw [1 - network inet raw,] (A)llow / [(D)eny] / (I)gnore / Audi(t) / Abo(r)t / (F)inish
+
+Enter A to allow the network family: Adding network inet raw, to profile.
+Profile: /bin/ping-x Network Family: inet Socket Type: dgram [1 - #include <abstractions/nameservice>] 2 - network inet dgram, (A)llow / [(D)eny] / (I)gnore / Audi(t) / Abo(r)t / (F)inish
+
+Enter A to add the socket type datagram to the profile: Adding #include <abstractions/nameservice> to profile.
+= Changed Local Profiles = The following local profiles were changed.
+Would you like to save them?
+[1 - /bin/ping-x] (S)ave Changes / Save Selec(t)ed Profile / [(V)iew Changes] / View Changes b/w (C)lean profiles / Abo(r)t
+
+Enter S to save the new profile: Writing updated profile for /bin/ping-x.
+Profiling: /bin/ping-x [(S)can system log for AppArmor events] / (F)inish
+
+Enter F to finish: Setting /bin/ping-x to enforce mode.
+Reloaded AppArmor profiles in enforce mode.
+Please consider contributing your new profile!
+See the following wiki page for more information: http://wiki.apparmor.net/index.php/Profiles Finished generating profile for /bin/ping-x.
+
+. View the created profile, which has been stored in /etc/appamor.d/bin.ping-x.
+
+` student@ubuntu:˜$ sudo cat /etc/apparmor.d/bin.ping-x #Last Modified: Tue Oct 17 11:30:47 2017 #include <tunables/global> /bin/ping-x { #include <abstractions/base> #include <abstractions/nameservice> capability net_raw, network inet raw, /bin/ping-x mr, /lib/x86_64-linux-gnu/ld-*.so mr, } `
+
+. The aa-genproc utility installs and activates the new policy so it should be ready to use, and the policies can be reloaded on demand with the systemctl reload apparmor command.
+To avoid any potential issues, and verify the changes will survive, reboot the system.
+Once the system has restarted, as the user student, verify ping-x still functions with the new profile enabled.
+Ping the localhost by ip address:
+
+``` student@ubuntu:˜$ ping-x -c3 -4 127.0.0.1 PING 127.0.0.1 (127.0.0.1) 56(84) bytes of 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64
+
+data.
+time=0.057 ms time=0.043 ms time=0.095 ms
+
+--- 127.0.0.1 ping statistics --3 packets transmitted, 3 received, 0% packet loss, time 2027ms rtt min/avg/max/mdev = 0.043/0.065/0.095/0.021 ms ```
+
+. This should work as expected.
+The profile is very specific, and AppArmor will not allow functionality outside of the specified parameters.
+To verify AppArmor is protecting this application, try to ping the IPV6 localhost address.
+This should fail:
+
+` student@ubuntu:˜$ ping-x -c3 -6 ::1 ping: socket: Permission denied `
+
+(Note, the -6 option means use only IPv6 and ::1 is the local host in IPv6.) The output indicates there is a socket issue.
+If the system log is examined it will be discovered that our ping-x program has no access to IPv6 within AppArmor:
+
+` 766:104): apparmor="DENIED" operation="create" profile="/bin/ping-x" pid=2709 comm="ping-x" family="inet6" sock_type="raw" protocol=58 requested_mask="create" denied_mask="create `
+
+. To correct this deficiency, re-run aa-genprof as we did earlier, and in window2, ping the IPv6 loopback and append the additional options

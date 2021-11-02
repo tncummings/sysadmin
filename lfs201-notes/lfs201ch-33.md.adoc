@@ -1,0 +1,104 @@
+:doctype: book
+
+Chapter 33 - Pluggable Authentication Modules (PAM)
+
+= Chapter 33 - Pluggable Authentication Modules (PAM)
+
+== Chapter 33 Introduction
+
+Pluggable Authentication Modules provide a uniform mechanism to ensure that users and applications are properly identified and authenticated.
+Conditional rules can be applied to limit the scope of permissions and control can be established over what to do in case of either success or failure.
+PAM can also work with LDAP to centralize authentication throughout a network.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the basic concepts that motivate the use of PAM.
+* List the steps involved in the authentication process.
+* Use and modify PAM configuration files.
+* Know how to interpret PAM rules and create new ones.
+* Apply LDAP to use and administer distributed directory services over the network.
+
+== PAM: A Unified Approach to Authentication
+
+Historically, authentication of users was performed individually by individual applications;
+i.e., su, login, and ssh would each authenticate and establish user accounts independently of each other.
+
+Most modern Linux applications have been written or rewritten to exploit PAM so that authentication can be done in one uniform way, using libpam.
+
+This library of modules provides enormous flexibility and consistency with respect to authentication, password, session, and account services.
+
+PAM incorporates the following concepts:
+
+* PAM-aware applications
+* Configuration files in /etc/pam.d/
+* PAM modules in the libpam* libraries, which can be found in different locations depending on the Linux distribution.
+
+Each PAM-aware application or service may be configured with respect to PAM by an individual configuration file in `/etc/pam.d`.
+
+== Authentication and Configuration Files
+
+Several steps are involved in authentication:
+
+* A user invokes a PAM-aware application, such as login, ssh, or su.
+* The application calls libpam.
+* The library checks for files in `/etc/pam.d`;
+these delineate which PAM modules to invoke, including system-auth.
+* Each referenced module is executed in accordance with the rules of the relevant configuration file for that application.
+
+Each file in `/etc/pam.d` corresponds to a service and each (non-commented) line in the file specifies a rule.
+The rule is formatted as a list of space-separated tokens, the first two of which are case insensitive:
+
+`type control module-path module-arguments`
+
+As an example, the screenshot here shows what are the contents of `/etc/pam.d/su` on a RHEL system.
+image:../../_resources/1d667f33670c495690c881a2ac127351.png[6031b589bddcffbc82cc34a98cec651c.png]
+
+Notice that there is a stack here;
+su will require loading of system-auth etc.
+
+== PAM Rules
+
+The module type specifies the management group the module is to be associated with:
+
+* *auth*: Instructs the application to prompt the user for identification (username, password, etc).
+May set credentials and grant privileges.
+* *account*: Checks on aspects of the user's account, such as password aging, access control, etc.
+* *password*: Responsible for updating the user authentication token, usually a password.
+* *session*: Used to provide functions before and after the session is established (such as setting up environment, logging, etc.).
+
+The control flag controls how the success or failure of a module affects the overall authentication process:
+
+* *required*: Must return success for the service to be granted.
+If part of a stack, all other modules are still executed.
+Application is not told which module or modules failed.
+* *requisite*: Same as required, except a failure in any module terminates the stack and a return status is sent to the application.
+* *optional*: Module is not required.
+If it is the only module, then its return status to application may cause failure.
+* *sufficient*: If this module succeeds, then no subsequent modules in the stack are executed.
+If it fails, then it doesn't necessarily cause the stack to fail, unless it is the only one in the stack.
+
+There are other control flags, such as *include* and *substack*.
+Please see man pam.d for details.
+
+`module-path` gives the file name of the library to be found in `/lib*/security`, in either absolute or relative path form.
+
+module-arguments can be given to modify the PAM module's behavior.
+
+== LDAP Authentication
+
+LDAP (Lightweight Directory Access Protocol) is an industry standard protocol for using and administering distributed directory services over the network, and is meant to be both open and vendor-neutral.
+
+When using LDAP for centralized authentication, each system (or client) connects to a centralized LDAP server for user authentication.
+Using TLS makes it a secure option and is recommended.
+
+LDAP uses PAM and system-config-authentication or authconfig-tui.
+One has to specify the server, search base DN (domain name) and TLS (Transport Layer Security).
+Also required is openldap-clients, pam ldap and nss-pam-ldapd.
+
+When you configure a system for LDAP authentication, five files are changed:
+
+`/etc/openldap/ldap.conf` `/etc/pam_ldap.conf` `/etc/nslcd.conf` `/etc/sssd/sssd.conf` `/etc/nsswitch.conf`
+
+You can edit these files manually or use one of the utility programs available (`system-config-authentication` or `authconfig-tui`).

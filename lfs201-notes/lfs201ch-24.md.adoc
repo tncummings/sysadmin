@@ -1,0 +1,245 @@
+:doctype: book
+
+Chapter 24 - RAID
+
+= Chapter 24 - RAID
+
+== Chapter 24 Introduction
+
+The use of RAID spreads I/O activity over multiple physical disks, rather than just one.
+Its purpose is to enhance data integrity and recoverability in case of failure, as well as to boost performance when used with modern storage devices.
+There are a number of different RAID levels which vary in their relative strengths in safety, performance, complexity and cost.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the concept of RAID.
+* Summarize RAID levels.
+* Configure a RAID device using the essential steps provided.
+* Monitor RAID devices in multiple ways.
+* Use hot spares.
+
+== RAID
+
+RAID (Redundant Array of Independent (or inexpensive) Disks) spreads I/O over multiple disks.
+This can really increase performance in modern disk controller interfaces, such as SCSI, which can perform the work in parallel efficiently.
+
+RAID can be implemented either in software (it is a mature part of the Linux kernel), or in hardware.
+If your hardware RAID is known to be of good quality, it should be more efficient than using software RAID.
+With the hardware implementation, the operating system is actually not directly aware of using RAID;
+it is transparent.
+For example, three 512GB hard drives (two for data, one for parity) configured with RAID-5 will just look like a single 1TB disk.
+
+However, one disadvantage of using hardware RAID is that if the disk controller fails, it must be replaced by a compatible controller, which may not be easy to obtain.
+When using software RAID, the same disks can be attached to and work with any disk controller.
+Such considerations are more likely to be relevant for low and mid-range hardware.
+
+Three essential features of RAID are:
+
+* mirroring: writing the same data to more than one disk
+* striping: splitting of data to more than one disk
+* parity: extra data is stored to allow problem detection and repair, yielding fault tolerance.
+
+Thus, use of RAID can improve both performance and reliability.
+
+One of the main purposes of a RAID device is to create a filesystem which spans more than one disk.
+This allows us to create filesystems which are larger than any one drive.
+RAID devices are typically created by combining partitions from several disks together.
+
+Another advantage of RAID devices is the ability to provide better performance, redundancy, or both.
+Striping provides better performance by spreading the information over multiple devices so simultaneous writes are possible.
+Mirroring writes the same information to multiple drives, giving better redundancy.
+
+*`mdadm`* is used to create and manage RAID devices.
+
+Once created, the array name, `/dev/mdX`, can be used just like any other device, such as `/dev/sda1`.
+
+== RAID Levels
+
+There are a number of RAID specifications of increasing complexity and use.
+The most commonly used are levels 0, 1, and 5.
+
+*RAID 0*: uses only striping.
+Data is spread across multiple disks.
+However, in spite of the name, there is no redundancy and there is no stability or recovery capabilities.
+In fact, if any disk fails, data will be lost.
+But performance can be improved significantly because of parallelization of I/O tasks.
+
+*RAID 1*: uses only mirroring;
+each disk has a duplicate.
+This is good for recovery.
+At least two disks are required.
+
+*RAID 5*: uses a rotating parity stripe;
+a single drive failure will cause no loss of data, only a performance drop.
+There must be at least 3 disks.
+
+*RAID 6*: has striped disks with dual parity;
+it can handle loss of two disks, and requires at least 4 disks.
+Because RAID 5 can impose significant stress on disks, which can lead to failures during recovery procedures, RAID 6 has become more important.
+
+*RAID 10*: is a mirrored and striped data set.
+At least 4 drives are needed.
+
+== Software RAID Configuration
+
+The essential steps in configuring a software RAID device are:
+
+. Create partitions on each disk (type fd in fdisk)
+. Create RAID device with mdadm
+. Format RAID device
+. Add device to /etc/fstab
+. Mount RAID device
+. Capture RAID details to ensure persistence.
+
+For example, create two partitions of type fd on disks sdb and sdc (say s/`dev/sdbX` and `/dev/sdcX)` by running fdisk on each:
+
+`$ sudo fdisk /dev/sdb` `$ sudo fdisk /dev/sdc`
+
+Then, set up the array, format it, add to the configuration and mount it:
+
+`$ sudo mdadm --create /dev/md0 --level=1 --raid-disks=2 /dev/sdbX /dev/sdcX` `$ sudo mkfs.ext4 /dev/md0` `$ sudo bash -c "mdadm --detail --scan >> /etc/mdadm.conf"` `$ sudo mkdir /myraid` `$ sudo mount /dev/md0 /myraid`
+
+Be sure to add a line in `/etc/fstab` for the mount point:
+
+`/dev/md0 /myraid ext4 defaults 0 2`
+
+You can examine `/proc/mdstat` to see the RAID status, as in:
+
+` $ cat /proc/mdstat Personalities : [raid1] md0 : active raid1 sdb8[1] sdc7[0] ---------- 521984 blocks [2/2] unused devices: <none> `
+
+You can use:
+
+`$ sudo mdadm -S /dev/md0`
+
+to stop the RAID device.
+
+== Monitoring RAIDs
+
+You can monitor RAID devices multiple ways, as in:
+
+`$ sudo mdadm --detail /dev/md0` `$ cat /proc/mdstat`
+
+You can also use `mdmonitor`, which requires configuring `/etc/mdadm.conf`.
+The command:
+
+`$ sudo mdadm --detail /dev/mdX`
+
+will show the current status of the RAID device `/dev/mdX`.
+Another way to do this is to examine the `/proc` filesystem:
+
+`$ cat /proc/mdstat`
+
+It will show the status of all RAID devices on the system.
+
+You can also use the `mdmonitor` service by editing `/etc/mdadm.conf` and adding a line like:
+
+`MAILADDR eddie@haskell.com`
+
+so that it notifies you with email sent to eddie@haskell.com when a problem occurs with a RAID device, such as when any of the arrays fail to start or fall into a degraded state.
+You turn it on with:
+
+`$ sudo systemctl start mdmonitor`
+
+and make sure it starts at boot with:
+
+`$ sudo systemctl enable mdmonitor`
+
+*On Ubuntu systems, the service is called `mdadm` rather than `mdmonitor`.*
+
+== RAID Hot Spares
+
+One of the important things that RAID provides is redundancy.
+To help ensure any reduction in that redundancy is fixed as quick as possible, a hot spare can be used.
+
+To create a hot spare when creating the RAID array:
+
+`$ sudo mdadm --create /dev/md0 -l 5 -n3 -x 1 /dev/sda8 /dev/sda9 /dev/sda10 /dev/sda11`
+
+The `-x 1` switch tells mdadm to use one spare device.
+Note that a hot spare can also be added at a later time.
+
+The command:
+
+`$ sudo mdadm --fail /dev/md0 /dev/sdb2`
+
+will test the redundancy and hot spare of your array.
+
+To restore the tested drive, or a new drive in a legitimate failure situation, first remove the "faulty" member, then add the "new" member, as in:
+
+`$ sudo mdadm --remove /dev/md0 /dev/sdb2` `$ sudo mdadm --add /dev/md0 /dev/sde2`
+
+== Lab 24.1: Creating a RAID Device
+
+Normally when creating a RAID device we would use partitions on separate disks.
+However, for this exercise we probably don't have such hardware available.
+Thus we will need to have two partitions on the same disk.
+The process will be the same whether the partitions are on one drive or several (Although there is obviously little reason to actually create a RAID on a single device).
+
+. Create two 200 MB partitions of type raid (fd) either on your hard disk using fdisk, or using LVM.
+. Create a RAID 1 device named `/dev/md0` using the two partitions.
+. Format the RAID device as an ext4 filesystem.
+Then mount it at `/myraid` and make the mount persistent.
+. Place the information about `/dev/md0` in `/etc/mdadm.conf`, using mdadm.
+(Depending on your distribution, this file may not previously exist.)
+. Examine `/proc/mdstat` to see the status of your RAID device.
+``` ubuntu@ip-172-31-1-79:~$ sudo losetup /dev/loop5 raidlab.1G  ubuntu@ip-172-31-1-79:~$ losetup -l NAME   SIZELIMIT OFFSET AUTOCLEAR RO BACK-FILE                                    DIO LOG-SEC /dev/loop1             0      0         1  1 /var/lib/snapd/snaps/core18_1988.snap          0     512 /dev/loop4             0      0         1  1 /var/lib/snapd/snaps/snapd_11107.snap          0     512 /dev/loop2             0      0         1  1 /var/lib/snapd/snaps/lxd_19188.snap            0     512 /dev/loop0             0      0         1  1 /var/lib/snapd/snaps/amazon-ssm-agent_3552.snap                                                                                  0     512 /dev/loop5             0      0         0  0 /home/ubuntu/raidlab.1G                        0     512 /dev/loop3             0      0         1  1 /var/lib/snapd/snaps/snapd_11036.snap          0     512 ubuntu@ip-172-31-1-79:~$ parted /dev/loop5 WARNING: You are not superuser.
+Watch out for permissions.
+Error: Error opening /dev/loop5: Permission denied Retry/Cancel?
+quit parted: invalid token: quit Retry/Cancel?
+sudo parted /dev/loop5                                    + parted: invalid token: sudo Retry/Cancel?
+c                                                         + ubuntu@ip-172-31-1-79:~$ sudo parted /dev/loop5 GNU Parted 3.3 Using /dev/loop5 Welcome to GNU Parted!
+Type 'help' to view a list of commands.
+(parted) help                                                           +   align-check TYPE N                       check partition N for TYPE(min|opt) alignment   help [COMMAND]                           print general help, or help on COMMAND   mklabel,mktable LABEL-TYPE               create a new disklabel (partition table)   mkpart PART-TYPE [FS-TYPE] START END     make a partition   name NUMBER NAME                         name partition NUMBER as NAME   print [devices|free|list,all|NUMBER]     display the partition table, available devices,      free space, all found partitions, or a particular partition   quit                                     exit program   rescue START END                         rescue a lost partition near START and END   resizepart NUMBER END                    resize partition NUMBER   rm NUMBER                                delete partition NUMBER   select DEVICE                            choose the device to edit   disk_set FLAG STATE                      change the FLAG on selected device   disk_toggle [FLAG]                       toggle the state of FLAG on selected device   set NUMBER FLAG STATE                    change the FLAG on partition NUMBER   toggle [NUMBER [FLAG]]                   toggle the state of FLAG on partition NUMBER   unit UNIT                                set the default unit to UNIT   version                                  display the version number and copyright      information of GNU Parted (parted) mkpart primary ext4 0 512 Warning: You requested a partition from 0.00B to 512MB (sectors 0..1000000).
+The closest location we can manage is 512B to 1048kB (sectors 1..2047).
+Is this still acceptable to you?
+Yes/No?
+yes                                                             + Warning: The resulting partition is not properly aligned for best performance: 1s % 2048s != 0s Ignore/Cancel?
+i (parted) print Model: Loopback device (loopback) Disk /dev/loop5: 1074MB Sector size (logical/physical): 512B/512B Partition Table: msdos Disk Flags:
+
+Number  Start   End     Size    Type     File system  Flags  2      512B    1049kB  1048kB  primary  ext4         lba  1      1049kB  538MB   537MB   primary
+
+(parted) mkpart primary ext4 Start?
+1049                                                             + End?
++ End?
+all                                                                + Error: Invalid number.
+(parted) mkpart primary 1049 512MB Error: Can't have the end before the start!
+(start sector=2048828 length=-1048827) (parted) q                                                              + Information: You may need to update /etc/fstab.
+
+ubuntu@ip-172-31-1-79:~$ sudo fdisk -l /dev/loop5 Disk /dev/loop5: 1 GiB, 1073741824 bytes, 2097152 sectors Units: sectors of 1 * 512 = 512 bytes Sector size (logical/physical): 512 bytes / 512 bytes I/O size (minimum/optimal): 512 bytes / 512 bytes Disklabel type: dos Disk identifier: 0xd2286add
+
+Device       Boot Start     End Sectors    Size Id Type /dev/loop5p1       2048 1050623 1048576    512M 83 Linux /dev/loop5p2          1    2047    2047 1023.5K 83 Linux
+
+Partition table entries are not in disk order.
+ubuntu@ip-172-31-1-79:~$ sudo mkpart /dev/loop5 primary ext4 1048576 2097152 sudo: mkpart: command not found ubuntu@ip-172-31-1-79:~$ $ sudo parted -s /dev/loop5 mkpart primary ext4 1050623 2097152 $: command not found ubuntu@ip-172-31-1-79:~$ $ sudo parted -s  /dev/loop5 unit MB mkpart primary ext4 512 1024 $: command not found ubuntu@ip-172-31-1-79:~$ sudo parted GNU Parted 3.3 Using /dev/xvda Welcome to GNU Parted!
+Type 'help' to view a list of commands.
+(parted) help   align-check TYPE N                       check partition N for TYPE(min|opt) alignment   help [COMMAND]                           print general help, or help on COMMAND   mklabel,mktable LABEL-TYPE               create a new disklabel (partition table)   mkpart PART-TYPE [FS-TYPE] START END     make a partition   name NUMBER NAME                         name partition NUMBER as NAME   print [devices|free|list,all|NUMBER]     display the partition table, available devices,         free space, all found partitions, or a particular partition   quit                                     exit program   rescue START END                         rescue a lost partition near START and END   resizepart NUMBER END                    resize partition NUMBER   rm NUMBER                                delete partition NUMBER   select DEVICE                            choose the device to edit   disk_set FLAG STATE                      change the FLAG on selected device   disk_toggle [FLAG]                       toggle the state of FLAG on selected device   set NUMBER FLAG STATE                    change the FLAG on partition NUMBER   toggle [NUMBER [FLAG]]                   toggle the state of FLAG on partition NUMBER   unit UNIT                                set the default unit to UNIT   version                                  display the version number and copyright         information of GNU Parted (parted) quit ubuntu@ip-172-31-1-79:~$ sudo parted /dev/loop5 GNU Parted 3.3 Using /dev/loop5 Welcome to GNU Parted!
+Type 'help' to view a list of commands.
+(parted) mkpart primary ext4 1050623 2097152                            + Error: The location 1050623 is outside of the device /dev/loop5.
+(parted) mkpart primary ext4 unit MB 512 1024 Error: Invalid number.
+(parted) print                                                          + Model: Loopback device (loopback) Disk /dev/loop5: 1074MB Sector size (logical/physical): 512B/512B Partition Table: msdos Disk Flags:
+
+Number  Start   End     Size    Type     File system  Flags  2      512B    1049kB  1048kB  primary  1      1049kB  538MB   537MB   primary
+
+(parted) unit MB (parted) mkpart primary ext4 538 1024                                   + (parted) print                                                          + Model: Loopback device (loopback) Disk /dev/loop5: 1074MB Sector size (logical/physical): 512B/512B Partition Table: msdos Disk Flags:
+
+Number  Start   End     Size    Type     File system  Flags  2      0.00MB  1.05MB  1.05MB  primary  1      1.05MB  538MB   537MB   primary  3      538MB   1024MB  487MB   primary  ext4         lba
+
+(parted) exit                                                           +   align-check TYPE N                       check partition N for TYPE(min|opt) alignment   help [COMMAND]                           print general help, or help on COMMAND   mklabel,mktable LABEL-TYPE               create a new disklabel (partition table)   mkpart PART-TYPE [FS-TYPE] START END     make a partition   name NUMBER NAME                         name partition NUMBER as NAME   print [devices|free|list,all|NUMBER]     display the partition table, available devices,         free space, all found partitions, or a particular partition   quit                                     exit program   rescue START END                         rescue a lost partition near START and END   resizepart NUMBER END                    resize partition NUMBER   rm NUMBER                                delete partition NUMBER   select DEVICE                            choose the device to edit   disk_set FLAG STATE                      change the FLAG on selected device   disk_toggle [FLAG]                       toggle the state of FLAG on selected device   set NUMBER FLAG STATE                    change the FLAG on partition NUMBER   toggle [NUMBER [FLAG]]                   toggle the state of FLAG on partition NUMBER   unit UNIT                                set the default unit to UNIT   version                                  display the version number and copyright         information of GNU Parted (parted) exit                                                           +   align-check TYPE N                       check partition N for TYPE(min|opt) alignment   help [COMMAND]                           print general help, or help on COMMAND   mklabel,mktable LABEL-TYPE               create a new disklabel (partition table)   mkpart PART-TYPE [FS-TYPE] START END     make a partition   name NUMBER NAME                         name partition NUMBER as NAME   print [devices|free|list,all|NUMBER]     display the partition table, available devices,         free space, all found partitions, or a particular partition   quit                                     exit program   rescue START END                         rescue a lost partition near START and END   resizepart NUMBER END                    resize partition NUMBER   rm NUMBER                                delete partition NUMBER   select DEVICE                            choose the device to edit   disk_set FLAG STATE                      change the FLAG on selected device   disk_toggle [FLAG]                       toggle the state of FLAG on selected device   set NUMBER FLAG STATE                    change the FLAG on partition NUMBER   toggle [NUMBER [FLAG]]                   toggle the state of FLAG on partition NUMBER   unit UNIT                                set the default unit to UNIT   version                                  display the version number and copyright         information of GNU Parted (parted) quit                                                           + Information: You may need to update /etc/fstab.
+
+ubuntu@ip-172-31-1-79:~$ fdisk -l /dev/loop5 fdisk: cannot open /dev/loop5: Permission denied ubuntu@ip-172-31-1-79:~$ sudo fdisk -l /dev/loop5 Disk /dev/loop5: 1 GiB, 1073741824 bytes, 2097152 sectors Units: sectors of 1 * 512 = 512 bytes Sector size (logical/physical): 512 bytes / 512 bytes I/O size (minimum/optimal): 512 bytes / 512 bytes Disklabel type: dos Disk identifier: 0xd2286add
+
+Device       Boot   Start     End Sectors    Size Id Type /dev/loop5p1         2048 1050623 1048576    512M 83 Linux /dev/loop5p2            1    2047    2047 1023.5K 83 Linux /dev/loop5p3      1050624 2000895  950272    464M 83 Linux
+
+Partition table entries are not in disk order.
+ubuntu@ip-172-31-1-79:~$ sudo mdadm --create /dev/md0 --level=1 --raid-disks=2 /dev/loop5p1 /dev/loop5p3 mdadm: Note: this array has metadata at the start and     may not be suitable as a boot device.
+If you plan to     store '/boot' on this device please ensure that     your boot-loader understands md/v1.x metadata, or use     --metadata=0.90 mdadm: largest drive (/dev/loop5p1) exceeds size (474112K) by more than 1% Continue creating array?
+y mdadm: Fail create md0 when using /sys/module/md_mod/parameters/new_array mdadm: Defaulting to version 1.2 metadata mdadm: array /dev/md0 started.
+ubuntu@ip-172-31-1-79:~$ sudo mkfs.ext4 /dev/md0 mke2fs 1.45.5 (07-Jan-2020) Discarding device blocks: done                          + Creating filesystem with 118528 4k blocks and 118528 inodes Filesystem UUID: 8863033c-40cf-4eaf-a528-20bb8f8bc03d Superblock backups stored on blocks:  	32768, 98304
+
+Allocating group tables: done                          + Writing inode tables: done                          + Creating journal (4096 blocks): done Writing superblocks and filesystem accounting information: done
+
+ubuntu@ip-172-31-1-79:~$ sudo bash -c "mdadm --detail --scan >> /etc/mdadm.conf > " ubuntu@ip-172-31-1-79:~$ less /etc/mdadm.conf ubuntu@ip-172-31-1-79:~$ sudo mkdir /myraid ubuntu@ip-172-31-1-79:~$ sudo mount /dev/md0 /myraid ubuntu@ip-172-31-1-79:~$ ls /myraid lost+found ubuntu@ip-172-31-1-79:~$ cat /proc/mdstat Personalities : [raid1]  md0 : active raid1 loop5p3[1] loop5p1[0]       474112 blocks super 1.2 [2/2] [UU]
+
+unused devices: +++<none>+++ubuntu@ip-172-31-1-79:~$ ```+++</none>+++

@@ -1,0 +1,185 @@
+:doctype: book
+
+Chapter 15 - IO Scheduling
+
+= Chapter 15 - IO Scheduling
+
+== Chapter 15 Introduction
+
+System performance often depends very heavily on optimizing the I/O scheduling strategy.
+Many (often competing) factors influence behavior;
+these include minimizing hardware access times, avoiding wear and tear on storage media, ensuring data integrity, granting timely access to applications that need to do I/O, and being able to prioritize important tasks.
+Linux offers a variety of I/O Schedulers to choose from, each of which has tunable parameters, as well as a number of utilities for reporting on and analyzing I/O performance.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the importance of I/O scheduling and describe the conflicting requirements that need to be satisfied.
+* Delineate and contrast the options available under Linux.
+* Understand how the CFQ (Completely Fair Queue) and Deadline algorithms work.
+
+== Disk Bottlenecks and I/O Scheduling
+
+The I/O scheduler provides the interface between the generic block layer and low-level physical device drivers.
+Both the VM (Virtual Memory) and VFS (Virtual File System) layers submit I/O requests to block devices;
+it is the job of the I/O scheduling layer to prioritize and order these requests before they are given to the block devices.
+There is a need to balance hardware access times, latency, deadlines, fairness, and efficiency.
+Modern SSDs can radically change requirements.
+
+Any I/O scheduling algorithm has to satisfy certain (sometimes conflicting) requirements:
+
+* Hardware access times should be minimized;
+i.e., requests should be ordered according to physical location on the disk.
+This leads to an elevator scheme where requests are inserted in the pending queue in physical order.
+* Requests should be merged to the extent possible to get as big a contiguous region as possible, which also minimizes disk access time.
+* Requests should be satisfied with as low a latency as is feasible;
+indeed, in some cases, determinism (in the sense of deadlines) may be important.
+* Write operations can usually wait to migrate from caches to disk without stalling processes.
+Read operations, however, almost always require a process to wait for completion before proceeding further.
+Favoring reads over writes leads to better parallelism and system responsiveness.
+* Processes should share the I/O bandwidth in a fair, or at least consciously prioritized fashion;
+even if it means some overall performance slowdown of the I/O layer, process throughput should not suffer inordinately.
+
+== I/O Scheduler Choices
+
+Since these demands can be conflicting, different I/O schedulers may be appropriate for different workloads;
+e.g., a large database server vs.
+a desktop system.
+Furthermore, different hardware may mandate a different strategy.
+In order to provide flexibility, the Linux kernel has an object oriented scheme, in which pointers to the various needed functions are supplied in a data structure, the particular one of which can be selected at boot on the kernel command line, as in:
+
+`+linux ...
+elevator=[bfq|deadline-mq|kyber|none]+`
+
+At least one of the I/O scheduling algorithms must be compiled into the kernel.
+Exactly what is available has changed with time, with a major overhaul coming with the 5.0 Linux kernel version.
+
+The default choice is a compile configuration option;
+for kernels before 2.6.18, it was AS, which then became CFQ, and it is now deadline-mq, but distributions may have a different preference.
+It is possible to use different I/O Schedulers for different devices.
+
+To see which I/O schedulers are available (for disk `/dev/sda`):
+
+` $ cat /sys/block/sda/queue/scheduler noop [deadline] cfq # Before kernel version 5.0 none bfq kyber [mq-deadline] # After kernel version 5.0 `
+
+To change the value (as superuser):
+
+` echo bfq > /sys/block/sda/queue/scheduler $ cat /sys/block/sda/queue/sheduler none [bfq] kyber mq-deadline `
+
+Scheduler-specific tunables can be found in /sys/block/sda/queue/iosched.
+
+== I/O Scheduling and SSD Devices
+
+The gradual introduction of SSD (Solid State Drive) devices, which use flash memory to emulate hard disks, has important implications for I/O scheduling.
+
+Such devices do not require an elevator scheme and benefit from wear leveling to spread I/O over the devices which have limited write/erase cycles.
+
+You can examine /sys/block/+++<device>+++/queue/rotational to see whether or not the device is an SSD or not, as in:+++</device>+++
+
+` $ cat /sys/block/sda/queue/rotational 1 `
+
+` $ cat /sys/block/sdb/queue/rotational 0 ` Where 0 indicates SSD and 1 indicates non-SSD drive
+
+== CFQ (Completely Fair Queue) Scheduler
+
+The CFQ (Completely Fair Queue) method has the goal of equal spreading of I/O bandwidth among all processes submitting requests.
+
+Theoretically, each process has its own I/O queue, which works together with a dispatch queue which receives the actual requests on the way to the device.
+In actual practice, the number of queues is fixed (at 64) and a hash process based on the process ID is used to select a queue when a request is submitted.
+
+Dequeuing of requests is done round robin style on all the queues, each one of which works in FIFO (First In First Out) order.
+Thus, the work is spread out.
+To avoid excessive seeking operations, an entire round is selected, and then sorted into the dispatch queue before actual I/O requests are issued to the device.
+
+_In the examples below, the parameter HZ is a kernel-configured quantity, that corresponds to the number of jiffies per second, which the kernel uses as a coarse measure of time.
+Without getting into detail, let us just point out that time units HZ/2 is 0.5 seconds and 5 * HZ is 5 seconds etc._
+
+=== Examples of CFQ Tunables
+
+*quantum*: Maximum queue length in one round of service.
+(Default = 4) *queued*: Minimum request allocation per queue.
+(Default = 8) *fifo_expire_sync*: FIFO timeout for sync requests.
+(Default = HZ/2) *fifo_expire_async*: FIFO timeout for async requests.
+(Default = 5 * HZ) *fifo_batch_expire*: Rate at which the FIFO's expire.
+(Default = HZ/8) *back_seek_max*: Maximum backwards seek, in KB.
+(Default = 16K) *back_seek_penalty*: Penalty for a backwards seek.
+(Default = 2)
+
+== Deadline Scheduler
+
+The Deadline I/O scheduler aggressively reorders requests with the simultaneous goals of improving overall performance and preventing large latencies for individual requests;
+i.e., limiting starvation.
+
+With each and every request, the kernel associates a deadline.
+Read requests get higher priority than write requests.
+
+Five separate I/O queues are maintained:
+
+* Two sorted lists are maintained, one for reading and one for writing, and arranged by starting block.
+* Two FIFO lists are maintained, again one for reading and one for writing.
+These lists are sorted by submission time.
+* A fifth queue contains the requests that are to be shoveled to the device driver itself.
+This is called the dispatch queue.
+
+Exactly how the requests are peeled off the first four queues and placed on the fifth (dispatch queue) is where the art of the algorithm is.
+
+=== Available tunables for the Deadline scheduler
+
+*read_expire*: How long (in milliseconds) a read request is guaranteed to occur within.
+(Default = HZ/2 = 500) *write_expire*: How long (in milliseconds) a write request is guaranteed to occur within.
+(Default = 5 * HZ = 5000) *writes_starved*: How many requests we should give preference to reads over writes.
+(Default = 2) *fifo_batch*: How many requests should be moved from the sorted scheduler list to the dispatch queue, when the deadlines have expired.
+(Default = 16) *front_merges*: Back merges are more common than front merges as a contiguous request usually continues to the next block.
+Setting this parameter to 0 disables front merges and can give a boost if you know they are unlikely to be needed.
+(Default = 1)
+
+``` tom@aur6a:~/Documents/linux-sysadmin$ sudo ./lab_iosched.sh  [sudo] password for tom:  Doing: 8 parallel read/writes on: 100 MB size files
+
+creating as needed random input files 100+0 records in 100+0 records out 104857600 bytes (105 MB, 100 MiB) copied, 2.51452 s, 41.7 MB/s
+
+doing timings of parallel reads
+
+REAL    USER    SYS
+
+testing IOSCHED = mq-deadline [mq-deadline] none 13.799   0.025   0.979 testing IOSCHED = none [none] mq-deadline  12.137   0.055   0.973
+
+doing timings of parallel writes
+
+REAL    USER    SYS
+
+testing IOSCHED = none [none] mq-deadline  10.142   0.032   2.337 testing IOSCHED = mq-deadline [mq-deadline] none 10.037   0.032   2.437 tom@aur6a:~/Documents/linux-sysadmin$ ``` ### lab_iosched.sh
+
+``` #!/bin/bash #/* *********** LFS201:2020-07-10 s_15/lab_iosched.sh *********** _/ #/_ # * The code herein is: Copyright the Linux Foundation, 2020 # * # * This Copyright is retained for the purpose of protecting free # * redistribution of source.
+# * # *     URL:    https://training.linuxfoundation.org # *     email:  training@linuxfoundation.org # * # * This code is distributed under Version 2 of the GNU General Public # * License, which you should have received with the source.
+# * # */ #!/bin/bash
+
+NMAX=8 NMEGS=100 [[ -n $1 ]] && NMAX=$1 [[ -n $2 ]]  && NMEGS=$2
+
+echo Doing: $NMAX parallel read/writes on: $NMEGS MB size files
+
+TIMEFORMAT="%R   %U   %S"
+
+[discrete]
+====== ########################################################
+
+# simple test of parallel reads do_read_test(){     for n in $(seq 1 $NMAX) ; do  	cat file$n > /dev/null &      done # wait for previous jobs to finish     wait }
+
+= simple test of parallel writes
+
+do_write_test(){     for n in $(seq 1 $NMAX) ; do  	[[ -f fileout$n ]] && rm -f fileout$n 	(cp file1 fileout$n && sync) &     done # wait for previous jobs to finish     wait }
+
+= create some files for reading, ok if they are the same
+
+create_input_files(){     [[ -f file1 ]] || dd if=/dev/urandom of=file1 bs=1M count=$NMEGS     for n in $(seq 1 $NMAX) ; do 	[[ -f file$n ]] || cp file1 file$n     done }
+
+echo -e "\ncreating as needed random input files" create_input_files
+
+[discrete]
+====== ########################################################
+
+# begin the actual work
+
+= do parallel read test
+
+echo -e "\ndoing timings of parallel reads\n"  echo -e " REAL    USER    SYS\n" #for iosched in noop deadline cfq ; do for iosched in \     $(cat /sys/block/sda/queue/scheduler | sed -e s/'['//g -e s/']'//g ) ; do      echo testing IOSCHED = $iosched     echo $iosched > /sys/block/sda/queue/scheduler     cat /sys/block/sda/queue/scheduler #    echo -e "\nclearing the memory caches\n"     echo 3 > /proc/sys/vm/drop_caches     time do_read_test done ############################################################## # do parallel write test echo -e "\ndoing timings of parallel writes\n"  echo -e " REAL    USER    SYS\n" for iosched in \     $(cat /sys/block/sda/queue/scheduler | sed -e s/'['//g -e s/']'//g ) ; do     echo testing IOSCHED = $iosched     echo $iosched > /sys/block/sda/queue/scheduler     cat /sys/block/sda/queue/scheduler     time  do_write_test done ############################################################## ```

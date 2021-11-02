@@ -1,0 +1,204 @@
+:doctype: book
+
+Chapter 16 - Linux Filesystems and the VFS
+
+= Chapter 16 - Linux Filesystems and the VFS
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the basic filesystem organization.
+* Understand the role of the VFS.
+* Know what filesystems are available in Linux and which ones can be used on your actual system.
+* Grasp why journalling filesystems represent significant advances.
+* Discuss the use of special filesystems in Linux.
+
+== Filesystem Basics
+
+Application programs read and write files, rather than dealing with physical locations on the actual hardware on which files are stored.
+Filesystems create a usable format on a physical partition.
+
+Files and their names are an abstraction camouflaging the physical I/O layer.
+Directly writing to disk from the command line (ignoring the filesystem layer) is very dangerous and is usually only done by low-level operating system software and not by user applications.
+An exception is some very high-end software such as enterprise data bases that do such cmd access to skip filesystem-related latency.
+
+A UNIX-like filesystem uses a tree hierarchy:
+
+* Directories contain files and/or other directories
+* Every path or node is under the root directory.
+
+Multiple filesystems may be (and usually are) merged together into a single tree structure.
+Linux uses a virtual filesystem layer (VFS) to communicate with the filesystem software.
+
+Local filesystems generally reside within a disk partition which can be a physical partition on a disk, or a logical partition controlled by a Logical Volume Manager (LVM).
+Filesystems can also be of a network nature and their true physical embodiment completely hidden to the local system across the network.
+
+== Inodes
+
+An inode is a data structure on disk that describes and stores file attributes, including location.
+Every file is associated with its own inode.
+The information stored in the inode includes:
+
+* Permissions
+* User and group ownership
+* Size
+* Timestamps (nanosecond)
+ ** Last access time
+ ** Last modification time
+ ** Change time.
+image:../../_resources/175920a2eb50451a8922b3e1c5c0b98b.png[5249d81030f6d7403d72da97f94b080c.png]
+
+*_File names are not stored in a file's inode, but are instead stored in the directory file.
+The name of a file is just a property of its inode, which is the more fundamental object._* All I/O activity concerning a file usually also involves the file's inode, as information must be updated.
+
+== Hard and Soft Links
+
+A directory file is a particular type of file that is used to associate file names and inodes.
+There are two ways to associate (or link) a file name with an inode:
+
+* Hard links point to an inode.
+All hard linked files have to be on the same filesystem.
+Changing the content of a hard linked file in one place may not change it in other places.
+* Soft (or symbolic) links point to a file name which has an associated inode.
+Soft linked files may be on different filesystems.
+If the target does not yet exist or is not yet mounting, it can be dangling.
+
+Each association of a directory file contents and an inode is known as a link.
+Additional links can be created using ln.
+
+Because it is possible (and quite common) for two or more directory entries to point to the same inode (hard links), a file can be known by multiple names, each of which has its own place in the directory structure.
+However, it can have only one inode no matter which name is being used.
+
+When a process refers to a pathname, the kernel searches directories to find the corresponding inode number.
+After the name has been converted to an inode number, the inode is loaded into memory and is used by subsequent requests.
+
+image::../../_resources/d553dea5cfc34e248c73289871b2ec45.png[d7c4940207fb66a4ab2faadbf30e2383.png]
+
+== Filesystem Tree Organization
+
+All Linux systems use an inverted tree hierarchy branching off the root (/) directory.
+While the entire tree may be contained in one local filesystem in one partition, usually there are multiple partitions (or network filesystems) joined together at mount points.
+These can also include removable media, such as USB drives, optical drives, etc.
+
+In addition, certain virtual pseudo filesystems (useful abstractions which exist only in memory) will be mounted within the tree;
+these include /proc, /sys and /dev and perhaps /tmp and /run as well.
+
+Each of the elements mounted within the tree may in fact have its own filesystem variety.
+But, to the applications and operating system, it all appears in one unified tree structure.
+
+== Virtual Filesystem (VFS)
+
+Linux implements a Virtual File System (VFS), as do all modern operating systems.
+When an application needs to access a file, it interacts with the VFS abstraction layer, which then translates all the I/O system calls (reading, writing etc.) into specific code relevant to the particular actual filesystem.
+
+Thus, neither the specific actual filesystem or physical media and hardware on which it resides need be considered by applications.
+Furthermore, network filesystems (such as NFS) can be handled transparently.
+
+This permits Linux to work with more filesystem varieties than any other operating system.
+This democratic attribute has been a large factor in its success.
+
+Most filesystems have full read and write access, while a few have only read access and perhaps experimental write access.
+Some filesystem types, especially non-UNIX based ones, may require more manipulation in order to be represented in the VFS.
+
+Variants such as vfat do not have distinct read/write/execute permissions for the owner/group/world fields;
+the VFS has to make an assumption about how to specify distinct permissions for the three types of user, and such behavior can be influenced by mounting operations.There are non-kernel filesystem implementations, such as the read/write ntfs-3g, which are reliable but have weaker performance than in-kernel filesystems.
+
+== Available Filesystems
+
+Linux supports many filesystem varieties, most with full read and write access, including:
+
+* ext4: Linux native filesystem (and earlier ext2 and ext3)
+* XFS: A high-performance filesystem originally created by SGI
+* JFS: A high-performance filesystem originally created by IBM
+* Windows-natives: FAT12, FAT16, FAT32, VFAT, NTFS
+* Pseudo-filesystems resident only in memory, including proc, sysfs, devfs, debugfs
+* Network filesystems such as NFS, coda, afs
+* etc.
+
+This democratic flexibility has been a large factor in its success.
+Most filesystems have full read/write access, while a few have read only access.
+
+Commonly used filesystems include ext4, xfs, btrfs, squashfs, nfs and vfat.
+A list of currently supported filesystems is at `/proc/filesystems`.
+
+== Filesystem Varieties
+
+You can see a list of the filesystem types currently registered and understood by the currently running Linux kernel by doing:
+
+` $ cat /proc/filesystems iso9660 squashfs ext3 ext2 ext4 fuseblk nodev sysfs nodev proc nodev tmpfs nodev debugfs nodev sockfs nodev hugetlbfs nodev fuse nodev nfsd ` \....
+
+The ones with nodev are special filesystems which do not reside on storage.
+Additional filesystems may have their code loaded as a module only when the system tries to access a partition that uses them.
+
+== Journaling Filesystems
+
+Journaling filesystems recover from system crashes or ungraceful shutdowns with little or no corruption, and do so very rapidly.
+While this comes at the price of having some more operations to do, additional enhancements can more than offset the price.
+
+In a journaling filesystem, operations are grouped into transactions.
+A transaction must be completed without error, atomically;
+otherwise, the filesystem is not changed.
+A log file is maintained of transactions.
+When an error occurs, usually only the last transaction needs to be examined.
+
+*ext3*: ext3 was an extension of the earlier non-journaling ext2 filesystem.
+*ext4*: ext4 is a vastly enhanced outgrowth of ext3.
+Features include extents, 48-bit block numbers, and up to 16TB size.
+Most Linux distributions have used ext4 as the default filesystem for quite a few years.
+*reiserfs*: reiserfs was the first journaling implementation used in Linux, but lost its leadership and further development was abandoned.
+*JFS*: JFS was originally a product of IBM and was ported from IBM's AIX operating system.
+*XFS*: XFS was originally a product of SGI, and was ported from SGI's IRIX operating systems.
+RHEL 7 adopted XFS as its default filesystem.
+*btrfs*: btrfs is the newest of the journaling filesystems and is still under rapid development.
+It is the default for SUSE and openSUSE systems.
+
+== Special Filesystems
+
+Linux widely employs the use of special filesystems for certain tasks.
+These are particularly useful for accessing various kernel data structures and tuning kernel behavior, or for implementing particular functions.
+Note that some of these special filesystems have no mount point, such as sockfs or pipefs;
+this means user applications don't interact with them, but the kernel uses them, taking advantage of VFS layers and code.
+These special filesystems are really not true filesystems;
+they are kernel facilities or subsystems that find the filesystem structural abstraction to be a useful way to recognize data and functionality.
+
+image::../../_resources/890592a69da544b7b79a66eecc91cdb6.png[5b76531a4e2e6972d55715e9d7bbd8b9.png]
+
+== Exercise 16.1: The tmpfs Special Filesystem
+
+tmpfs is one of many special filesystems used under Linux.
+Some of these are not really used as filesystems, but just take advantage of the filesystem abstraction.
+However, tmpfs is a real filesystem that applications can do I/O on.
+Essentially, tmpfs functions as a ramdisk ; it resides purely in memory.
+But it has some nice properties that old-fashioned conventional ramdisk implementations did not have:
+
+. The filesystem adjusts its size (and thus the memory that is used) dynamically;
+it starts at zero and expands as necessary up to the maximum size it was mounted with.
+. If your RAM gets exhausted, tmpfs can utilize swap space.
+(You still can't try to put more in the filesystem than its maximum capacity allows, however.)
+. tmpfs does not require having a normal filesystem placed in it, such as ext3 or vfat;
+it has its own methods for dealing with files and I/O that are aware that it is really just space in memory (it is not actually a block device), and as such are optimized for speed.
+Thus there is no need to pre-format the filesystem with a mkfs command;
+you merely just have to mount it and use it.
+
+Mount a new instance of tmpfs anywhere on your directory structure with a command like:  ` $ sudo mkdir /mnt/tmpfs  $ sudo mount -t tmpfs none /mnt/tmpfs `
+
+See how much space the filesystem has been given and how much it is using: `$ df -h /mnt/tmpfs`
+
+` ubuntu@ip-172-31-21-230:/$ sudo mkdir /mnt/tmpfs ubuntu@ip-172-31-21-230:/$ sudo mount -t tmpfs none /mnt/tmpfs ubuntu@ip-172-31-21-230:/$ df -h /mnt/tmpfs Filesystem      Size  Used Avail Use% Mounted on none            490M     0  490M   0% /mnt/tmpfs ubuntu@ip-172-31-21-230:/$ `
+
+You should see it has been allotted a default value of half of your RAM;
+however, the usage is zero, and will only start to grow as you place files on `/mnt/tmpfs`.
+
+You could change the allotted size as a mount option as in:  `$ sudo mount -t tmpfs -o size=1G none /mnt/tmpfs`
+
+You might try filling it up until you reach full capacity and see what happens.
+Do not forget to unmount when you are done with:  `$ sudo umount /mnt/tmpfs`
+
+Virtually all modern Linux distributions mount an instance of tmpfs at `/dev/shm`:  ` $ df -h /dev/shm  Filesystem Type   Size  Used Avail Use% Mounted on  tmpfs      tmpfs  3.9G   24M  3.9G   1% /dev/shm `
+
+Many applications use this such as when they are using POSIX shared memory as an inter-process communication mechanism.
+Any user can create, read and write files in `/dev/shm`, so it is a good place to create temporary files in memory.
+Create some files in /dev/shm and note how the filesystem is filling up with `df`.
+In addition, many distributions mount multiple instances of tmpfs;
+for example, on a RHEL system:  `$ df -h | grep ' tmpfs '`

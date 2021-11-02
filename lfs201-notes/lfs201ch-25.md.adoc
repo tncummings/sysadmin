@@ -1,0 +1,176 @@
+:doctype: book
+
+Chapter 25 - Kernel Services & Configuration
+
+= Chapter 25 - Kernel Services & Configuration
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Grasp the main responsibilities the kernel must fulfill and how it achieves them.
+* Explain what parameters can be set on the kernel command line and how to make them effective either for just one system boot, or persistently.
+* Know where to find detailed documentation on these parameters.
+* Use `sysctl` to set kernel parameters either after the system starts, or persistently across system reboots.
+
+== Kernel Overview
+
+Narrowly defined, Linux is only the kernel of the operating system, which includes many other components, such as libraries and applications that interact with the kernel.
+
+The kernel is the essential central component that connects the hardware to the software and manages system resources, such as memory and CPU time allocation among competing applications and services.
+It handles all connected devices using device drivers, and makes the devices available for operating system use.
+
+A system running only a kernel has rather limited functionality.
+It will be found only in dedicated and focused embedded devices.
+
+The main responsibilities of the kernel include:
+
+* System initialization and boot up
+* Process scheduling
+* Memory management
+* Controlling access to hardware
+* I/O (Input/Output) between applications and storage devices
+* Implementation of local and network filesystems
+* Security control, both locally (such as filesystem permissions) and over the network
+* Networking control.
+
+== Kernel Command Line
+
+Various parameters are passed to the system at boot on the kernel command line.
+Normally, these are on the linux or linux16 line in the GRUB configuration file, but can be modified at boot.
+
+Sample kernel command lines will depend on distribution and might look like:
+
+`linux boot/vmlinuz-4.19.0 root=UUID=7ef4e747-afae-90b4-9be8be8d0258 ro quiet crashkernel=384M-:128M`
+
+or:
+
+`linuxfi /boot/vmlinuz-5.2.9 root=UUID=77461ee7-c34a-4c5f-b0bc-29f4feecc743 ro crashkernel=auto rhgb quiet`
+
+and would be found in `grub.cfg` in a subdirectory under boot, such as `/boot/grub`, or in a place like `/boot/efi/EFI/centos/grub.cfg`.
+
+Everything after the `vmlinuz` file specified is an option.
+Any options not understood by the kernel will be passed to init (pid = 1), the first user process to be run on the system.
+
+You should not edit this file directly, but modify the relevant files under `/etc`.
+
+To see what command line a system was booted with, type:
+
+`$ cat /proc/cmdline` `BOOT_IMAGE=/boot/vmlinuz-5.2.9 root=UUID=77461ee7-c34a-4c5f-b0bc029f4feecc743 ro crashkernel=auto rhgb quiet`
+
+== Kernel Boot Parameters
+
+There is a rather surprisingly long list of available kernel parameters.
+Detailed documentation can be found:
+
+* In the kernel source in the file kernel-parameters.txt in the kernel source.
+* Online, using the kernel's command line parameters documentation.
+* On the system in the kernel documentation package provided by most distributions with a name like kernel-doc or linux-doc.
+* By typing man bootparam.
+
+Parameters can be specified simply as a value given as an argument, or in the form param=value, where the given value can be a string, integer, array of integers, etc., as explained in the documentation file.
+
+`+vmlinuz root=/dev/sda6 .....
+noapic ....
+crashkernel=256M+`
+
+Kernel options are placed at the end of the kernel line and are separated by spaces.
+An example of kernel boot parameter (all in one line):
+
+`linux16 /boot/vmlinuz-3.19.1.0 root=UUID=178d0092-4154-4688-af24-cda272265e08 ro vconsole.keymap=us crashkernel=auto vconsole.font=latarcyrheb-sun16 rhgb quiet LANG=en_US.UTF-8`
+
+Below you can see an explanation of some of the boot parameters, some of which we have displayed previously:
+
+* root: root filesystem
+* ro: mounts root device read-only on boot
+* vconsole.keymap: which keyboard to use on the console
+* crashkernel: how much memory to set aside for kernel crashdumps
+* vconsole.font: which font to use on the console
+* rhgb: for graphical boot
+* quiet: disables most log messages.
+* LANG: is the system language.
+
+By convention, there should be no intentionally hidden or secret parameters.
+They should all be explained in the documentation and patches to the kernel source with new parameters should always include patches to the documentation file.
+
+== sysctl
+
+The sysctl interface can be used to read and tune kernel parameters at run time.
+The screenshot shows you how the current values can be displayed by doing:
+
+`$ sysctl -a` image:../../_resources/0dce0a3845fd4feaa585eee071ce5e8a.png[b4b019718f20d9bb75a6a9661f7cb074.png] ### Using sysctl
+
+Each value corresponds to a particular pseudofile residing under /proc/sys, with directory slashes being replaced by dots.
+For example, the following two statements are equivalent:
+
+`$ sudo sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'`
+
+`$ sudo sysctl net.ipv4.ip_forward=1`
+
+where the second form is used to set a value with the `sysctl` command line interface.
+Do not leave spaces around the = sign in this command.
+Note that in the first form, we cannot just use a simple sudo with echo;
+the command must be done in the complicated way shown, or executed as root.
+
+Browsing through the pseudofiles under /proc/sys will render the same information as sysctl -a.
+You can get full details on how to use sysctl by doing man 8 sysctl.
+To get information about using the sysctl() function from programs to do the same operations, do man 2 sysctl.
+
+If settings are placed in /etc/sysctl.conf (see man sysctl.conf for details), settings can be fixed at boot time.
+
+Note that typing
+
+$ sudo sysctl -p
+
+effectuates immediate digestion of the file, setting all parameters as found;
+this is also part of the boot process.
+
+With the advent of systemd, things are a little more complicated.
+Vendors put their settings in files in the /usr/lib/sysctl.d/ directory.
+These can be added to or supplanted by files placed in /etc/sysctl.d.
+However, the original file (/etc/sysctl.conf) is still supported, as is self-documented in that file.
+
+== Exercise 25.1: System Tunables with sysctl
+
+. Check if you can ping your own system.
+. Check the current value of net.ipv4.icmp_echo_ignore_all, which is used to turn on and off whether your system will respond to ping.
+A value of 0 allows your system to respond to pings.
+. Set the value to 1 using the sysctl command line utility and then check if pings are responded to.
+. Set the value back to 0 and show the original behavior in restored.
+. Now change the value by modifying /etc/sysctl.conf and force the system to activate this setting file without a reboot.
+. Check that this worked properly.
+You will probably want to reset your system to have its original behavior when you are done.
+
+=== my notes:
+
+When changing the parameter by editing `/etc/sysctl.conf`, adding the `=1` parameter worked, but setting it back through simply removing the line did not change the parameter.
+I suspect removing the line "orphaned" the setting, leaving it active.
+I then changed the setting back to `=0` using the `sysctl` command.
+
+``` ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_seq=1 ttl=64 time=0.027 ms 64 bytes from localhost (127.0.0.1): icmp_seq=2 ttl=64 time=0.030 ms 64 bytes from localhost (127.0.0.1): icmp_seq=3 ttl=64 time=0.030 ms 64 bytes from localhost (127.0.0.1): icmp_seq=4 ttl=64 time=0.030 ms 64 bytes from localhost (127.0.0.1): icmp_seq=5 ttl=64 time=0.029 ms {caret}C --- localhost ping statistics --- 5 packets transmitted, 5 received, 0% packet loss, time 4095ms rtt min/avg/max/mdev = 0.027/0.029/0.030/0.001 ms ubuntu@ip-172-31-1-79:~$ sysctl -n net.ipv4.icmp_echo_ignore_all 0 ubuntu@ip-172-31-1-79:~$ sudo sysctl net.ipv4.icmp_echo_ignore_all=1 net.ipv4.icmp_echo_ignore_all = 1 ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+{caret}C --- localhost ping statistics --- 3 packets transmitted, 0 received, 100% packet loss, time 2044ms
+
+ubuntu@ip-172-31-1-79:~$ sudo sysctl net.ipv4.icmp_echo_ignore_all=0 net.ipv4.icmp_echo_ignore_all = 0 ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_seq=1 ttl=64 time=0.020 ms 64 bytes from localhost (127.0.0.1): icmp_seq=2 ttl=64 time=0.030 ms 64 bytes from localhost (127.0.0.1): icmp_seq=3 ttl=64 time=0.040 ms {caret}C --- localhost ping statistics --- 3 packets transmitted, 3 received, 0% packet loss, time 2033ms rtt min/avg/max/mdev = 0.020/0.030/0.040/0.008 ms
+
+ubuntu@ip-172-31-1-79:~$ cat /etc/sysctl.conf | grep 'net.ipv4.icmp_echo_ignore_all' ubuntu@ip-172-31-1-79:~$ cat /etc/sysctl.conf | grep "net.ipv4*" #net.ipv4.conf.default.rp_filter=1 #net.ipv4.conf.all.rp_filter=1 #net.ipv4.tcp_syncookies=1 #net.ipv4.ip_forward=1 #net.ipv6.conf.all.forwarding=1 #net.ipv4.conf.all.accept_redirects = 0 #net.ipv6.conf.all.accept_redirects = 0 #net.ipv4.conf.all.secure_redirects = 1 #net.ipv4.conf.all.send_redirects = 0 #net.ipv4.conf.all.accept_source_route = 0 #net.ipv6.conf.all.accept_source_route = 0 #net.ipv4.conf.all.log_martians = 1
+
+ubuntu@ip-172-31-1-79:~$ sudo vim /etc/sysctl.conf  ubuntu@ip-172-31-1-79:~$ sudo sysctl -p net.ipv4.icmp_echo_ignore_all = 1 ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+{caret}C --- localhost ping statistics --- 3 packets transmitted, 0 received, 100% packet loss, time 2036ms
+
+ubuntu@ip-172-31-1-79:~$ sudo vim /etc/sysctl.conf  ubuntu@ip-172-31-1-79:~$ sudo sysctl -p ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+{caret}C --- localhost ping statistics --- 5 packets transmitted, 0 received, 100% packet loss, time 4085ms
+
+ubuntu@ip-172-31-1-79:~$ sudo vim /etc/sysctl.conf  ubuntu@ip-172-31-1-79:~$ sudo sysctl -p ubuntu@ip-172-31-1-79:~$ sudo sysctl -n net.ipv4.icmp_echo_ignore_all 1 ubuntu@ip-172-31-1-79:~$ sudo sysctl net.ipv4.icmp_echo_ignore_all=0 net.ipv4.icmp_echo_ignore_all = 0 ubuntu@ip-172-31-1-79:~$ ping localhost PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_seq=1 ttl=64 time=0.021 ms 64 bytes from localhost (127.0.0.1): icmp_seq=2 ttl=64 time=0.031 ms 64 bytes from localhost (127.0.0.1): icmp_seq=3 ttl=64 time=0.042 ms {caret}C --- localhost ping statistics --- 3 packets transmitted, 3 received, 0% packet loss, time 2048ms rtt min/avg/max/mdev = 0.021/0.031/0.042/0.008 ms ubuntu@ip-172-31-1-79:~$ ```  ## Lab 25.2: Changing the Maximum Process ID The normal behavior of a  Linux system is that process IDs start out at PID=1 for the init process, the first user process on the system, and then go up sequentially as new processes are constantly created (and die as well.) However, when the PID reaches the value shown in /proc/sys/kernel/pid max, which is conventionally 32768 (32K), they will wrap around to lower numbers.
+If nothing else, this means you can't have more than 32K processes on the system since there are only that many slots for PIDs.
+1.
+Obtain the current maximum PID value.
+2.
+Find out what current PIDs are being issued 3.
+Reset pid_max to a lower value than the ones currently being issued.
+4.
+Start a new process and see what it gets as a PID.
+
+` ubuntu@ip-172-31-1-79:~$ sudo sysctl -a |grep "kernel.pid_max" kernel.pid_max = 4194304 ubuntu@ip-172-31-1-79:~$ ps     PID TTY          TIME CMD     852 pts/0    00:00:00 bash    1016 pts/0    00:00:00 ps ubuntu@ip-172-31-1-79:~$ ps     PID TTY          TIME CMD     852 pts/0    00:00:00 bash    1017 pts/0    00:00:00 ps ubuntu@ip-172-31-1-79:~$ sudo sysctl kernel.pid_max=1000 kernel.pid_max = 1000 ubuntu@ip-172-31-1-79:~$ ps PID TTY          TIME CMD 300 pts/0    00:00:00 ps 852 pts/0    00:00:00 bash ubuntu@ip-172-31-1-79:~$ ps PID TTY          TIME CMD 301 pts/0    00:00:00 ps 852 pts/0    00:00:00 bash ubuntu@ip-172-31-1-79:~$ sudo sysctl kernel.pid_max=4194304 kernel.pid_max = 4194304 ubuntu@ip-172-31-1-79:~$ sudo sysctl -a |grep "kernel.pid_max" kernel.pid_max = 4194304 ubuntu@ip-172-31-1-79:~$ `

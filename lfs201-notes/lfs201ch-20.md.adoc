@@ -1,0 +1,230 @@
+:doctype: book
+
+Chapter 20 - The EXT2/EXT3/EXT4 Filesystems
+
+= Chapter 20 - The EXT2/EXT3/EXT4 Filesystems
+
+== Chapter 20 Introduction
+
+The ext family of filesystems have been native to Linux since its earliest days, and have been the most widely used of the choices available.
+Until very recently, ext4 was the most frequent default choice of Linux distributions, due to its excellent combination of performance, integrity, and stability.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Describe the main features of the ext4 filesystem and how it is laid out on disk.
+* Explain the concepts of block groups, superblock, data blocks and inodes.
+* Use the dumpe2fs and tune2fs utilities.
+* List the ext4 filesystem enhancements.
+
+== ext4 Filesystem Features
+
+The ext2 filesystem was Linux's original native variety, and is available on all Linux systems, but is rarely used today.
+The ext3 filesystem was the first journalling extension of ext2.
+It had the same on-disk layout as ext2, except for the presence of a journal file.
+
+The ext4 filesystem first appeared in kernel version 2.6.19, and its experimental designation was removed in version 2.6.28.
+It included significant enhancements, such as the use of extents for large files, instead of lists of file blocks.
+An extent is simply a group of contiguous blocks.
+Using them can improve large file performance and reduce fragmentation.
+ext4 is the default filesystem on most enterprise Linux distributions, although RHEL 7 adopted XFS as the default.
+
+There is a close correspondence of features between the VFS and the ext2/3/4 filesystems, as each has been designed with the other in mind.
+
+Block size is selected when the filesystem is built;
+it can be 512, 1024, 2048, or 4096 bytes.
+By default, 4096 is usually used for hard disk systems, unless the partition is very small.
+Unless there are very many small files, larger block sizes can be more efficient in terms of minimizing hard disk access.
+
+The Linux kernel memory management system requires that only an integral number of blocks must fit into a page of memory;
+thus, you cannot have 8 KB blocks on an x86 platform, where pages of memory are 4 KB in size.
+
+The number of inodes on the filesystem can also be tuned, which may save disk space.
+
+A feature called inode reservation consists of reserving several inodes when a directory is created, expecting them to be used in the future.
+This improves performance, because, when new files are created, the directory already has inodes allocated.
+
+If the pathname of a symbolic link is less than 60 characters, a so-called fast symbolic link is created, which is stored directly in the inode, obviating the need to read a data block.
+
+To summarize, the ext4 filesystem:
+
+* Is backwards-compatible with ext3 and ext2.
+* Increases the maximum filesystem size to 1 EB (from 16 TB), and the maximum file to 16 TB (from 2 TB).
+These limits arise from the 48-bit addressing that is used;
+full 64-bit addressing may be in the future, but not really needed at this point.
+* Increases without limit the maximum number of subdirectories, which was limited to 32K in ext3.
+* Splits large files into the largest possible extents instead of using indirect block mapping.
+This can improve large file performance and reduce fragmentation.
+* Uses multi-block allocation which can allocate space all at once, instead of one block at a time.
+In addition, delayed allocation can also increase performance.
+* Can pre-allocate disk space for a file.
+The allocated space is usually both guaranteed and contiguous.
+* Uses allocate-on-flush, a performance technique which delays block allocation until data is written to disk.
+* Uses fast fsck, which can make the speed of a filesystem check go up by an order of magnitude or more.
+* Uses checksums for the journal which improves reliability.
+This can also safely avoid a disk I/O wait during journalling, resulting in a slight performance boost.
+* Uses improved timestamps measured in nanoseconds.
+
+== ext4 Layout
+
+All fields are written to disk in little-endian order, except the journal.
+
+Disk blocks are partitioned into block groups, each of which contains inode and data blocks stored adjacently, thereby lowering access time.
+
+Data blocks are pre-allocated to files before they are actually used.
+Thus, when a file's size is increased, adjacent space has already been reserved and file fragmentation is reduced.
+
+The filesystem superblock contains bit-fields which are used to ascertain whether or not the filesystem requires checking when it is first mounted during system initialization.
+The status can be:
+
+ Clean: filesystem cleanly unmounted previously
+ Dirty: usually means mounted
+ Unknown: not cleanly unmounted, such as when there is a system crash.
+
+In the latter two cases, fsck will be run to check the filesystem and fix any problems before it is mounted.
+
+Other fields in the superblock contain information about when the filesystem was last checked, both in date and number of mounts, and automatic checking is triggered when tunable limits are exceeded for these quantities.
+
+The first block on the filesystem is the so-called boot block, and is reserved for the partition boot sector.
+
+== ext4 Superblock and Block Groups
+
+The superblock contains global information about the filesystem, including:
+
+* Mount count and maximum mount count (The mount count is incremented every time the disk is successfully mounted, and its value is the number of times this has been done since the last fsck.) You can also force a filesystem check after 180 days by default, or another time that can be changed by the tune2fs utility.
+* Block size (Cannot be greater than a page of memory, set by mkfs.)
+* Blocks per group
+* Free block count
+* Free inode count
+* Operating System ID.
+
+As we discussed earlier, the superblock is redundantly stored in several block groups.
+
+After the boot block, there is a series of block groups, each of which is the same size.
+The layout of each block group is given in the following diagram: image:../../_resources/c0531d3fa6234e8f96179d11803ab03b.png[61c2438102807a143d2621219ac4d3f1.png]
+
+=== ext3 and ext4 Filesystem Layout
+
+The layout of a standard block group is simple.
+For block group 0, the first 1024 bytes are unused (to allow for boot sectors, etc).
+The superblock will start at the first block, except for block group 0.
+This is followed by the group descriptors and a number of GDT (Group Descriptor Table) blocks.
+These are followed by the data block bitmap, the inode bitmap, the inode table, and the data blocks.
+
+The first and second blocks are the same in every block group, and comprise the Superblock and the Group Descriptors.
+Under normal circumstances, only those in the first block group are used by the kernel;
+the duplicate copies are only referenced when the filesystem is being checked.
+If everything is OK, the kernel merely copies them over from the first block group.
+If there is a problem with the master copies, it goes to the next and so on until a healthy one is found and the filesystem structure is rebuilt.
+This redundancy makes it very difficult to thoroughly fry an ext2/3/4 filesystem, as long as the filesystem checks are run periodically.
+
+In the early incarnations of the ext filesystem family, each block group contained the group descriptors for every block group, as well as a copy of the superblock.
+As an optimization, however, today not all block groups have a copy of the superblock and group descriptors.
+To see what you have, you could examine it as in the accompanying screenshot, (putting in an appropriate device node) to see precise locations.
+This happens when the filesystem is created with the sparse_super option, which is the default.
+image:../../_resources/a17ca01f0abe4efb89b4fd43d8979e23.png[40f7725e529129616632bbb4585d62bf.png]
+
+=== Using dump2fs
+
+The number of block groups is constrained by the fact that the block bitmap, which identifies used and free blocks within the group, has to fit in a single block.
+Thus, if a block is 4096 bytes in size, a block group can contain no more than 32 K blocks, or 128 MB.
+If we take the largest possible block group size, a 10 GB partition would thus have to have at least 80 block groups.
+
+The block allocator tries to keep each file's blocks within the same block group to reduce seek times.
+
+== Data Blocks and Inodes
+
+The data block and inode bitmaps are blocks whose bits contain 0 for each free block or inode and 1 for each used one.
+There is only one of each of these bitmaps per block group.
+
+The inode table contains as many consecutive blocks as are necessary to cover the number of inodes in the block group.
+Each inode requires 128 bytes;
+thus, a 4 KB block can contain 32 inodes.
+
+There is space reserved for some operating system-dependent information;
+different operating systems could possibly mount an ext2/3/4 filesystem, much as Linux can mount many kinds of non-native filesystems.
+
+*The inode number itself is not stored on the disk in this structure;
+its value can be quickly calculated from the block group number and offset within the inode table*
+
+The ext2 and ext3 filesystems did not yet incorporate the use of extents to organize larger files.
+Instead, the i_block[] array of pointers to data blocks, of length EXT2_N_BLOCKS=15, is described by the inode.
+The way this is handled is somewhat complex:
+
+* The first 12 elements in this array simply point to the first 12 data blocks in the file.
+* The 13th element points to a block that represents a second-order array of block numbers;
+the 14th to a third-order array, and the 15th to a fourth-order array.
+
+This algorithm makes addressing small files go the fastest, as it should.
+For instance, with a 4 KB block size, a 48 KB file can be directly addressed, a 2 MB file requires a second-order process, a 1 GB a third-order, a 4 GB file a fourth-order.
+
+== dumpe2fs
+
+As we have just demonstrated, you can use the utility dumpe2fs to scan the filesystem information (limits, capabilities and flags, as well as other attributes);
+doing so on a partition reveals:
+
+``` $ sudo dumpe2fs /dev/sda1
+
+Filesystem volume name: RHEL7 Last mounted on: / Filesystem UUID: 9d6b5801-9c7e-4c17-9068-49923952338e Filesystem magic number: 0xEF53 Filesystem revision #: 1 (dynamic) Filesystem features: has_journal ext_attr resize_inode dir_index filetype needs_recovery extent 64bit flex_bg sparse_super
+
+Filesystem flags: signed_directory_hash Default mount options: user_xattr acl Filesystem state: clean Errors behavior: Continue Filesystem OS type: Linux Inode count: 1908736 Block count: 7630592 Reserved block count: 381529
+
+Free blocks: 5353383 Free inodes: 1682479 First block: 0 Block size: 4096 Fragment size: 4096 Group descriptor size: 64 Reserved GDT blocks: 1024 Blocks per group: 32768 Fragments per group: 32768 Inodes per group: 8192 Inode blocks per group: 512 Flex block group size: 16 Filesystem created: Wed Sep 3 03:52:55 2014 Last mount time: Fri Oct 24 09:18:58 2014 Last write time: Fri Oct 24 09:18:58 2014 Mount count: 89 Maximum mount count: -1 Last checked: Wed Sep 3 03:52:55 2014 Check interval: 0 (+++<none>+++) Lifetime writes: 103 GB Reserved blocks uid: 0 (user root) Reserved blocks gid: 0 (group root) First inode: 11 Inode size: 256 Required extra isize: 28 Desired extra isize: 28 Journal inode: 8 First orphan inode: 396118 Default directory hash: half_md4 Directory Hash Seed: e488c43e-241c-4014-91d8-6a9d3d6c7784 Journal backup: inode blocks Journal features: journal_incompat_revoke journal_64bit Journal size: 128M Journal length: 32768 Journal sequence: 0x00023592 Journal start: 16394+++</none>+++
+
+Group 0: (Blocks 0-32767) [ITABLE_ZEROED] Checksum 0x2921, unused inodes 7738 Primary superblock at 0, Group descriptors at 1-4 Reserved GDT blocks at 5-1028 Block bitmap at 1029 (+1029), Inode bitmap at 1045 (+1045) Inode table at 1061-1572 (+1061) 22880 free blocks, 8174 free inodes, 2 directories, 7738 unused inodes Free blocks: 9381-9672, 10180-32767 Free inodes: 19-8192
+
+Group 1: (Blocks 32768-65535) [INODE_UNINIT, ITABLE_ZEROED] Checksum 0x473e, unused inodes 8192 Backup superblock at 32768, Group descriptors at 32769-32772 Reserved GDT blocks at 32773-33796 Block bitmap at 1030 (bg #0 + 1030), Inode bitmap at 1046 (bg #0 + 1046) Inode table at 1573-2084 (bg #0 + 1573) 14918 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 33797, 33800-33919, 34108-34511, 34521-34559, 34784-34815, 37053-38015, 38039- 38040, 38080-38527, 38529-38911, Free inodes: 8193-16384 \.....
+
+Group 196: (Blocks 6422528-6455295) [INODE_UNINIT, ITABLE_ZEROED] Checksum 0x946d, unused inodes 8192 Block bitmap at 6291460 (bg #192 + 4), Inode bitmap at 6291476 (bg #192 + 20) Inode table at 6293536-6294047 (bg #192 + 2080) 32768 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 6422528-6455295 Free inodes: 1605633-1613824 \....
+
+Group 232: (Blocks 7602176-7630591) [INODE_UNINIT, ITABLE_ZEROED] Checksum 0xa174, unused inodes 8192 Block bitmap at 7340040 (bg #224 + 8), Inode bitmap at 7340056 (bg #224 + 24) Inode table at 7344160-7344671 (bg #224 + 4128) 28416 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 7602176-7630591 Free inodes: 1900545-1908736 ```
+
+== tune2fs
+
+tune2fs can be used to change filesystem parameters.
+
+To change the maximum number of mounts between filesystem checks (max-mount-count):
+
+`$ sudo tune2fs -c 25 /dev/sda1`
+
+To change the time interval between checks (interval-between-checks):
+
+`$ sudo tune2fs -i 10 /dev/sda1`
+
+To list the contents of the superblock, including the current values of parameters which can be changed:
+
+`$ sudo tune2fs -l /dev/sda1`
+
+You can see an example below:
+
+`$ sudo tune2fs -l /dev/sdb1`
+
+` tune2fs 1.42.9 (28-Dec-2013) Filesystem volume name: RHEL7 Last mounted on: / Filesystem UUID: 471dfeba-3ec7-4529-8069-2afe50762c57 Filesystem magic number: 0xEF53 Filesystem revision #: 1 (dynamic) Filesystem features: has_journal ext_attr resize_inode dir_index filetype needs_recovery extent 64bit flex_bg sparse_super large_file huge_file uninit_bg dir_nlink extra_isize Filesystem flags: signed_directory_hash Default mount options: user_xattr acl Filesystem state: clean Errors behavior: Continue Filesystem OS type: Linux Inode count: 1281120 Block count: 5120000 Reserved block count: 256000 Free blocks: 2700371 Free inodes: 1004272 First block: 0 Block size: 4096 Fragment size: 4096 Group descriptor size: 64 Reserved GDT blocks: 1024 Blocks per group: 32768 Fragments per group: 32768 Inodes per group: 8160 Inode blocks per group: 510 Flex block group size: 16 Filesystem created: Thu Jan 15 13:24:59 2015 Last mount time: Fri Sep 9 07:00:26 2016 Last write time: Fri Sep 9 07:00:25 2016 Mount count: 55 Maximum mount count: 100 Last checked: Wed Jul 20 13:53:02 2016 Check interval: 0 (<none>) Lifetime writes: 624 GB Reserved blocks uid: 0 (user root) Reserved blocks gid: 0 (group root) First inode: 11 Inode size: 256 Required extra isize: 28 Desired extra isize: 28 Journal inode: 8 First orphan inode: 1057172 Default directory hash: half_md4 Directory Hash Seed: f78ac45c-42d4-492b-bbf7-7e987d84bb87 Journal backup: inode blocks `
+
+== Lab 20.1. Defragmentation
+
+Newcomers to Linux are often surprised at the lack of mention of filesystem defragmentation tools, since such programs are routinely used in the Windows world.
+However, native filesystems in UNIX-type operating systems, including Linux, tend not to suffer serious problems with filesystem fragmentation.
+
+This is primarily because they do not try to cram files onto the innermost disk regions where access times are faster.
+Instead, they spread free space out throughout the disk, so that when a file has to be created there is a much better chance that a region of free blocks big enough can be found to contain the entire file in either just one or a small number of pieces.
+For modern hardware, the concept of innermost disk regions is obscured by the hardware anyway.
+
+=== Don't do this!
+
+*For SSDs defragmentation can actually shorten the lifespan of the storage media* due to finite read/erase/write cycles.
+On smart operating systems defragmentation is turned off by default on SSD drives.
+
+Furthermore, the newer journalling filesystems (including ext4) work with extents (large contiguous regions) by design.
+However, there does exist a tool for de-fragmenting ext4 filesystems:
+
+`$ sudo e4defrag` `+ e4defrag 1.45.5 (07-Jan-2020) Usage	: e4defrag [-v] file...| directory...| device...
+: e4defrag  -c  file...| directory...| device...
++` e4defrag is part of the e2fsprogs package and should be on all modern Linux distributions.
+The only two options are: *`-v`*: Be verbose.
+*`-c`*: Don't actually do anything, just analyze and report.
+
+The argument can be: - A file - A directory - An entire device
+
+Examples: `$ sudo e4defrag -c /var/log` ``` e4defrag 1.45.5 (07-Jan-2020)+++<Fragmented files="">+++now/best size/ext 1. /var/log/wtmp 14/1 4 KB 2. /var/log/cups/access_log.1 2/1 4 KB 3. /var/log/faillog 2/1 4 KB 4. /var/log/auth.log 16/1 10 KB 5. /var/log/auth.log.1 16/1 15 KB Total/best extents 2321/95 Average size per extent 276 KB Fragmentation score 11 [0-30 no problem: 31-55 a little bit fragmented: 56- needs defrag] This directory (/var/log) does not need defragmentation. Done. ``` Try running `e4defrag` on various files, directories, and entire devices, always trying with `-c` first. You will generally find that Linux filesystems only tend to need defragmentation when they get very full, over 90 percent or so, or when they are small and have relatively large files, like when a boot partition is used. ``` tom@aur6a:~$ sudo e4defrag -c /home/tom/Documents/ e4defrag 1.45.5 (07-Jan-2020) +++<Fragmented files="">+++now/best size/ext 1. /home/tom/Documents/School/Jo/jo_giblin_Friday_letter.png 2/1 1822 KB 2. /home/tom/Documents/linux-sysadmin/fileout7 16/1 6400 KB 3. /home/tom/Documents/linux-sysadmin/fileout6 16/1 6400 KB 4. /home/tom/Documents/linux-sysadmin/fileout5 16/1 6400 KB 5. /home/tom/Documents/linux-sysadmin/fileout3 15/1 6826 KB Total/best extents 1618/1445 Average size per extent 22971 KB Fragmentation score 0 [0-30 no problem: 31-55 a little bit fragmented: 56- needs defrag] This directory (/home/tom/Documents/) does not need defragmentation. Done. tom@aur6a:~$ sudo e4defrag -c /home/tom/ e4defrag 1.45.5 (07-Jan-2020) +++<Fragmented files="">+++now/best size/ext 1. /home/tom/.zoom/data/zoomus.enc.db 12/1 4 KB 2. /home/tom/.config.old/chromium/Default/Local Storage/leveldb/000003.log 12/1 4 KB 3. /home/tom/.steam/debian-installation/logs/connection_log.txt 17/1 4 KB 4. /home/tom/.local.old/share/QuiteRss/QuiteRss/debug.log 7/1 4 KB 5. /home/tom/.mozilla/firefox/3fxl7grm.default-release/storage.sqlite 5/1 4 KB Total/best extents 455987/434449 Average size per extent 434 KB Fragmentation score 0 [0-30 no problem: 31-55 a little bit fragmented: 56- needs defrag] This directory (/home/tom/) does not need defragmentation. Done. tom@aur6a:~$ ``` ## Lab 20.2. Modifying Filesystem Parameters with tune2fs We are going to fiddle with some properties of a formatted ext4 filesystem. This does not require unmounting the filesystem first. In the below you can work with an image file you create as in: `$ dd if=/dev/zero of=imagefile bs=1M count=1024` `$ mkfs.ext4 imagefile` or you can substitute `/dev/sdaX` (using whatever partition the filesystem you want to modify is mounted on) for imagefile. 1. Using `dumpe2fs`, obtain information about the filesystem whose properties you want to adjust. Display: - The maximum mount count setting (after which a filesystem check will be forced.) - The Check interval (the amount of time after which a filesystem check is forced) - The number of blocks reserved, and the total number of blocks 2. Change: - The maximum mount count to 30. - The Check interval to three weeks. - The percentage of blocks reserved to 10 percent. 3. Using `dumpe2fs`, once again obtain information about the filesystem and compare with the original output. ``` tom@aur6a:~$ dumpe2fs imagefile dumpe2fs 1.45.5 (07-Jan-2020) Filesystem volume name: +++<none>+++Last mounted on: +++<not available="">+++Filesystem UUID: 1e484792-0747-4b9f-b6af-6f0f534a7fea Filesystem magic number: 0xEF53 Filesystem revision #: 1 (dynamic) Filesystem features: has_journal ext_attr resize_inode dir_index filetype extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum Filesystem flags: signed_directory_hash Default mount options: user_xattr acl Filesystem state: clean Errors behavior: Continue Filesystem OS type: Linux Inode count: 65536 Block count: 262144 Reserved block count: 13107 Free blocks: 249189 Free inodes: 65525 First block: 0 Block size: 4096 Fragment size: 4096 Group descriptor size: 64 Reserved GDT blocks: 127 Blocks per group: 32768 Fragments per group: 32768 Inodes per group: 8192 Inode blocks per group: 512 Flex block group size: 16 Filesystem created: Thu Mar 4 14:21:42 2021 Last mount time: n/a Last write time: Thu Mar 4 14:21:42 2021 Mount count: 0 Maximum mount count: -1 Last checked: Thu Mar 4 14:21:42 2021 Check interval: 0 (+++<none>+++) Lifetime writes: 533 kB Reserved blocks uid: 0 (user root) Reserved blocks gid: 0 (group root) First inode: 11 Inode size: 256 Required extra isize: 32 Desired extra isize: 32 Journal inode: 8 Default directory hash: half_md4 Directory Hash Seed: 99c08a32-c192-40e1-a62a-716e6d698635 Journal backup: inode blocks Checksum type: crc32c Checksum: 0x15b76f53 Journal features: (none) Journal size: 32M Journal length: 8192 Journal sequence: 0x00000001 Journal start: 0 Group 0: (Blocks 0-32767) csum 0x6ed5 [ITABLE_ZEROED] Primary superblock at 0, Group descriptors at 1-1 Reserved GDT blocks at 2-128 Block bitmap at 129 (+129), csum 0xe5af13a1 Inode bitmap at 137 (+137), csum 0x385755a8 Inode table at 145-656 (+145) 28521 free blocks, 8181 free inodes, 2 directories, 8181 unused inodes Free blocks: 4247-32767 Free inodes: 12-8192 Group 1: (Blocks 32768-65535) csum 0x8168 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 32768, Group descriptors at 32769-32769 Reserved GDT blocks at 32770-32896 Block bitmap at 130 (bg #0 + 130), csum 0x00000000 Inode bitmap at 138 (bg #0 + 138), csum 0x00000000 Inode table at 657-1168 (bg #0 + 657) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 32897-65535 Free inodes: 8193-16384 Group 2: (Blocks 65536-98303) csum 0x5fb4 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Block bitmap at 131 (bg #0 + 131), csum 0x00000000 Inode bitmap at 139 (bg #0 + 139), csum 0x00000000 Inode table at 1169-1680 (bg #0 + 1169) 32768 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 65536-98303 Free inodes: 16385-24576 Group 3: (Blocks 98304-131071) csum 0xe6ab [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 98304, Group descriptors at 98305-98305 Reserved GDT blocks at 98306-98432 Block bitmap at 132 (bg #0 + 132), csum 0x00000000 Inode bitmap at 140 (bg #0 + 140), csum 0x00000000 Inode table at 1681-2192 (bg #0 + 1681) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 98433-131071 Free inodes: 24577-32768 Group 4: (Blocks 131072-163839) csum 0x2229 [INODE_UNINIT, ITABLE_ZEROED] Block bitmap at 133 (bg #0 + 133), csum 0x84dc79e4 Inode bitmap at 141 (bg #0 + 141), csum 0x00000000 Inode table at 2193-2704 (bg #0 + 2193) 24576 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 139264-163839 Free inodes: 32769-40960 Group 5: (Blocks 163840-196607) csum 0x1426 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 163840, Group descriptors at 163841-163841 Reserved GDT blocks at 163842-163968 Block bitmap at 134 (bg #0 + 134), csum 0x00000000 Inode bitmap at 142 (bg #0 + 142), csum 0x00000000 Inode table at 2705-3216 (bg #0 + 2705) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 163969-196607 Free inodes: 40961-49152 Group 6: (Blocks 196608-229375) csum 0xcafa [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Block bitmap at 135 (bg #0 + 135), csum 0x00000000 Inode bitmap at 143 (bg #0 + 143), csum 0x00000000 Inode table at 3217-3728 (bg #0 + 3217) 32768 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 196608-229375 Free inodes: 49153-57344 Group 7: (Blocks 229376-262143) csum 0x4579 [INODE_UNINIT, ITABLE_ZEROED] Backup superblock at 229376, Group descriptors at 229377-229377 Reserved GDT blocks at 229378-229504 Block bitmap at 136 (bg #0 + 136), csum 0x9fc7de50 Inode bitmap at 144 (bg #0 + 144), csum 0x00000000 Inode table at 3729-4240 (bg #0 + 3729) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 229505-262143 Free inodes: 57345-65536 tom@aur6a:~$ sudo tune2fs -c 30 imagefile tune2fs 1.45.5 (07-Jan-2020) Setting maximal mount count to 30 tom@aur6a:~$ sudo tune2fs -i 3w imagefile tune2fs 1.45.5 (07-Jan-2020) Setting interval between checks to 1814400 seconds tom@aur6a:~$ sudo tune2fs -m 10 imagefile tune2fs 1.45.5 (07-Jan-2020) Setting reserved blocks percentage to 10% (26214 blocks) tom@aur6a:~$ dumpe2fs imagefile dumpe2fs 1.45.5 (07-Jan-2020) Filesystem volume name: +++<none>+++Last mounted on: +++<not available="">+++Filesystem UUID: 1e484792-0747-4b9f-b6af-6f0f534a7fea Filesystem magic number: 0xEF53 Filesystem revision #: 1 (dynamic) Filesystem features: has_journal ext_attr resize_inode dir_index filetype extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum Filesystem flags: signed_directory_hash Default mount options: user_xattr acl Filesystem state: clean Errors behavior: Continue Filesystem OS type: Linux Inode count: 65536 Block count: 262144 Reserved block count: 26214 Free blocks: 249189 Free inodes: 65525 First block: 0 Block size: 4096 Fragment size: 4096 Group descriptor size: 64 Reserved GDT blocks: 127 Blocks per group: 32768 Fragments per group: 32768 Inodes per group: 8192 Inode blocks per group: 512 Flex block group size: 16 Filesystem created: Thu Mar 4 14:21:42 2021 Last mount time: n/a Last write time: Thu Mar 4 14:28:23 2021 Mount count: 0 Maximum mount count: 30 Last checked: Thu Mar 4 14:21:42 2021 Check interval: 1814400 (3 weeks) Next check after: Thu Mar 25 15:21:42 2021 Lifetime writes: 533 kB Reserved blocks uid: 0 (user root) Reserved blocks gid: 0 (group root) First inode: 11 Inode size: 256 Required extra isize: 32 Desired extra isize: 32 Journal inode: 8 Default directory hash: half_md4 Directory Hash Seed: 99c08a32-c192-40e1-a62a-716e6d698635 Journal backup: inode blocks Checksum type: crc32c Checksum: 0xd7f6566f Journal features: (none) Journal size: 32M Journal length: 8192 Journal sequence: 0x00000001 Journal start: 0 Group 0: (Blocks 0-32767) csum 0x6ed5 [ITABLE_ZEROED] Primary superblock at 0, Group descriptors at 1-1 Reserved GDT blocks at 2-128 Block bitmap at 129 (+129), csum 0xe5af13a1 Inode bitmap at 137 (+137), csum 0x385755a8 Inode table at 145-656 (+145) 28521 free blocks, 8181 free inodes, 2 directories, 8181 unused inodes Free blocks: 4247-32767 Free inodes: 12-8192 Group 1: (Blocks 32768-65535) csum 0x8168 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 32768, Group descriptors at 32769-32769 Reserved GDT blocks at 32770-32896 Block bitmap at 130 (bg #0 + 130), csum 0x00000000 Inode bitmap at 138 (bg #0 + 138), csum 0x00000000 Inode table at 657-1168 (bg #0 + 657) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 32897-65535 Free inodes: 8193-16384 Group 2: (Blocks 65536-98303) csum 0x5fb4 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Block bitmap at 131 (bg #0 + 131), csum 0x00000000 Inode bitmap at 139 (bg #0 + 139), csum 0x00000000 Inode table at 1169-1680 (bg #0 + 1169) 32768 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 65536-98303 Free inodes: 16385-24576 Group 3: (Blocks 98304-131071) csum 0xe6ab [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 98304, Group descriptors at 98305-98305 Reserved GDT blocks at 98306-98432 Block bitmap at 132 (bg #0 + 132), csum 0x00000000 Inode bitmap at 140 (bg #0 + 140), csum 0x00000000 Inode table at 1681-2192 (bg #0 + 1681) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 98433-131071 Free inodes: 24577-32768 Group 4: (Blocks 131072-163839) csum 0x2229 [INODE_UNINIT, ITABLE_ZEROED] Block bitmap at 133 (bg #0 + 133), csum 0x84dc79e4 Inode bitmap at 141 (bg #0 + 141), csum 0x00000000 Inode table at 2193-2704 (bg #0 + 2193) 24576 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 139264-163839 Free inodes: 32769-40960 Group 5: (Blocks 163840-196607) csum 0x1426 [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Backup superblock at 163840, Group descriptors at 163841-163841 Reserved GDT blocks at 163842-163968 Block bitmap at 134 (bg #0 + 134), csum 0x00000000 Inode bitmap at 142 (bg #0 + 142), csum 0x00000000 Inode table at 2705-3216 (bg #0 + 2705) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 163969-196607 Free inodes: 40961-49152 Group 6: (Blocks 196608-229375) csum 0xcafa [INODE_UNINIT, BLOCK_UNINIT, ITABLE_ZEROED] Block bitmap at 135 (bg #0 + 135), csum 0x00000000 Inode bitmap at 143 (bg #0 + 143), csum 0x00000000 Inode table at 3217-3728 (bg #0 + 3217) 32768 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 196608-229375 Free inodes: 49153-57344 Group 7: (Blocks 229376-262143) csum 0x4579 [INODE_UNINIT, ITABLE_ZEROED] Backup superblock at 229376, Group descriptors at 229377-229377 Reserved GDT blocks at 229378-229504 Block bitmap at 136 (bg #0 + 136), csum 0x9fc7de50 Inode bitmap at 144 (bg #0 + 144), csum 0x00000000 Inode table at 3729-4240 (bg #0 + 3729) 32639 free blocks, 8192 free inodes, 0 directories, 8192 unused inodes Free blocks: 229505-262143 Free inodes: 57345-65536 tom@aur6a:~$ ```+++</not>++++++</none>++++++</none>++++++</not>++++++</none>++++++</Fragmented>++++++</Fragmented>++++++</Fragmented>+++

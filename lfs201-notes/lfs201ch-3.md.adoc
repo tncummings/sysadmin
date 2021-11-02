@@ -1,0 +1,600 @@
+:doctype: book
+
+= Chapter 3 - Processes
+
+Created Tuesday 19 January 2021
+
+== Goals
+By the end of this chapter, you should be able to:
+
+* Describe a process and the resources associated with it.
+* Describe the role of the init process.
+(First process run on a system)
+* Distinguish between processes, programs and threads.
+* Understand process attributes, permissions and states, and know how to control limits.
+* Explain the difference between running in user and kernel modes.
+* Describe daemon processes.
+* Understand how new processes are forked (created).
+* Use nice and renice to set and modify priorities.
+* Understand how shared and static libraries are used.
+(ldd command)
+
+[discrete]
+=== Programs, Processes, and Threads
+
+*_A program is a set of instructions, along with any internal data used while carrying the instructions out_*.
+Programs may also use external data.
+Internal data might include text strings inside the program, which are used to display user prompts.
+External data might include data from a database.
+Many user commands, such as ls, cat and rm are programs which are external to the operating system kernel, or shell (in other words, they have their own executable program on disk).
+
+*_A process is an executing program and associated resources, including environment, open files, signal handlers, etc._* The same program may be executing more than once simultaneously, and thus, be responsible for multiple processes.
+
+At the same time, *_two or more tasks, or threads of execution, can share various resources, such as their entire memory spaces (or just particular memory areas), open files, etc.
+When there is an everything shared circumstance, one speaks of a multi-threaded process._*
+
+In other operating systems, there may be a big distinction between full heavy weight processes and light weight ones;
+strictly speaking, the heavy weight process may include a number of light weight processes, or just one of them.
+
+In Linux, the situation is quite different.
+Each thread of execution is considered individually, the difference between heavy and light having to do only with sharing of resources and somewhat faster context switching between threads of execution.
+
+Unlike some other operating systems, Linux has always done an exceptionally fast job of creating, destroying, and switching between processes.
+Thus, *_the model adopted for multi-threaded applications resembles multiple processes;
+each thread is scheduled individually and normally, as if it were a stand-alone process._* This is done instead of involving more levels of complication, such as having a separate method of scheduling among the threads of a process, as well as having a scheduling method between different processes.
+
+At the same time, Linux respects POSIX and other standards for multi-threaded processes;
+e.g., each thread returns the same process ID (called the thread group ID internally), while returning a distinct thread ID (called the process ID internally).
+This can lead to confusion for developers, but should be invisible to administrators.
+
+[discrete]
+=== What Is a Process?
+
+*_A process is an instance of a program in execution._* It may be in a number of different states, such as running or sleeping.
+Every process has a pid (Process ID), a ppid (Parent Process ID), and a pgid (Process Group ID).
+In addition, every process has program code, data, variables, file descriptors, and an environment.
+
+_init is usually the first user process run on a system, and thus becomes the ancestor of all subsequent processes running on the system, except for those initiated directly from the kernel (which show up with [] around their name in a ps listing)._
+
+If the parent process dies before the child, the ppid of the child is set to 1;
+i.e., the process is adopted by init.
+(Note: in recent Linux systems using systemd, the ppid will be set to 2, which corresponds to an internal kernel thread known as kthreadd, which has taken over from init the role of adopter of orphaned children.)
+
+A child process which terminates (either normally or abnormally) before its parent, which has not waited for it and examined its exit code, is known as a zombie (or defunct) process.
+Zombies have released almost all resources and remain only to convey their exit status.
+One function of the init process is to check on its adopted children and let those who have terminated die gracefully.
+Hence, it is sometimes known as the zombie killer, or more grimly, the child reaper.
+
+Processes are controlled by scheduling, which is completely preemptive.
+Only the kernel has the right to preempt a process;
+they cannot do it to each other.
+
+_For historical reasons, the largest PID has been limited to a 16-bit number, or 32768.
+It is possible to alter this value by changing /proc/sys/kernel/pid_max, since it may be inadequate for larger servers.
+As processes are created, eventually they will reach pid_max, at which point they will start again at PID = 300._
+
+[discrete]
+=== Process Attributes
+
+All processes have certain attributes:
+
+. The program being executed
+. Context (state)
+. Permissions
+. Associated resources.
+
+Every process is executing some program.
+At any given moment, _the process may take a snapshot of itself by trapping the state of its CPU registers, where it is executing in the program, what is in the process' memory, and other information.
+This is the context of the process._
+
+Since processes can be scheduled in and out when sharing CPU time with others (or have to be put to sleep while waiting for some condition to be fulfilled, such as the user to make a request or data to arrive), being able to store the entire context when swapping out the process and being able to restore it upon execution resumption is critical to the kernel's ability to do context switching.
+
+Every process has permissions based on which user has called it to execute.
+It may also have permissions based on who owns its program file.
+Programs which are marked with an `"s`" execute bit have a different `"effective`" user id than their `"real`" user id.
+These programs are referred to as setuid programs.
+They run with the user-id of the user who owns the program, where a non-setuid program runs with the permissions of the user who starts it.
+setuid programs owned by root can be a security problem.
+
+The passwd command is an example of a setuid program.
+It is runnable by any user.
+When a user executes this program, the process runs with root permission in order to be able to update the write-restricted files, /etc/passwd and /etc/shadow, where the user passwords are maintained.
+
+Note that every process has resources such as allocated memory, file handles, etc.
+
+[discrete]
+=== Process Resource Isolation
+
+When a process is started, it is isolated in its own user space to protect it from other processes.
+This promotes security and creates greater stability.
+
+Processes do not have direct access to hardware.
+Hardware is managed by the kernel, so a process must use _system calls_ to indirectly access hardware.
+*_System calls are the fundamental interface between an application and the kernel._*
+
+[discrete]
+=== Controlling Processes with ulimit
+
+ulimit is a built-in bash command that displays or resets a number of resource limits associated with processes running under a shell.
+You can see what running ulimit with the -a argument gives us in the screenshot below.
+
+image:../images/ulimit.png[] Screenshot of the ulimit -a command and its output
+
+A system administrator may need to change some of these values in either direction:
+
+* To restrict capabilities so an individual user and/or process cannot exhaust system resources, such as memory, cpu time or the maximum number of processes on the system.
+* To expand capabilities so a process does not run into resource limits;
+for example, a server handling many clients may find that the default of 1024 open files makes its work impossible to perform.
+
+There are two kinds of limits:
+
+Hard The maximum value, set only by the root user, that a user can raise the resource limit to.
+$ ulimit -H -n 4096 Soft The current limiting value, which a user can modify, but cannot exceed the hard limit.
+$ ulimit -S -n 1024
+
+One can set any particular limit by doing:
+
+$ ulimit [options] [limit]
+
+as in
+
+$ ulimit -n 1600
+
+which would increase the maximum number of file descriptors to 1600.
+
+Note that the changes only affect the current shell.
+To make changes that are effective for all logged-in users, you need to modify /etc/security/limits.conf, a very nicely self-documented file, and then reboot.
+
+[discrete]
+=== Process States
+
+Processes can be in one of several possible states.
+The scheduler manages all of the processes.
+The process state is reported by the process listing.
+
+[discrete]
+==== Main Process States
+
+* Running: Currently executing on a CPU or in run queue.
+* Sleeping (i.e., Waiting): Waiting on a request, e.g.
+I/O
+* Stopped: Process suspended for debugging or by user input of CTRL+z
+* Zombie: Process has not reported exit code before parent stopped.
+It is assigned to PID 1 (init) or PID 2 (kthreadd)
+
+[discrete]
+=== Execution Modes
+
+At any given time, a process (or any particular thread of a multi-threaded process) may be executing in either user mode or system mode, which is usually called kernel mode by kernel developers.
+
+What instructions can be executed depends on the mode and is enforced at the hardware, not software, level.
+
+The mode is not a state of the system;
+it is a state of the processor, as in a multi-core or multi-CPU system each unit can be in its own individual state.
+
+In Intel parlance, user mode is also termed Ring 3, and system mode is termed Ring 0.
+
+[discrete]
+==== User Mode
+
+Except when executing a system call, processes execute in user mode, where they have lesser privileges than in the kernel mode.
+
+When a process is started, it is isolated in its own user space to protect it from other processes.
+This promotes security and creates greater stability.
+This is sometimes called process resource isolation.
+
+Each process executing in user mode has its own memory space, parts of which may be shared with other processes;
+except for the shared memory segments, a user process is not able to read or write into or from the memory space of any other process.
+
+Even a process run by the root user or as a setuid program runs in user mode, except when jumping into a system call, and has only limited ability to access hardware.
+
+[discrete]
+==== System (Kernel) Mode
+
+In kernel (system) mode, the CPU has full access to all hardware on the system, including peripherals, memory, disks, etc.
+If an application needs access to these resources, it must issue a system call, which causes a context switch from user mode to kernel mode.
+This procedure must be followed when reading and writing from files, creating a new process, etc.
+
+Application code never runs in kernel mode, only the system call itself which is kernel code.
+When the system call is complete, a return value is produced and the process returns to user mode with the inverse context switch.
+
+There are other times when the system is in kernel mode that have nothing to do with processes, such as when handling hardware interrupts or running the scheduling routines and other management tasks for the system.
+
+[discrete]
+=== Daemons
+
+A daemon process is a background process whose sole purpose is to provide some specific service to users of the system:
+
+Daemons can be quite efficient because they only operate when needed.
+Many daemons are started at boot time.
+Daemon names often (but not always) end with d.
+Some examples include httpd and systemd-udevd.
+Daemons may respond to external events (systemd-udevd) or elapsed time (crond).
+Daemons generally have no controlling terminal and no standard input/output devices.
+Daemons sometimes provide better security control.
+
+When using SysVinit, scripts in the /etc/init.d directory start various system daemons.
+These scripts invoke commands as arguments to a shell function named daemon, defined in the /etc/init.d/functions file.
+
+[discrete]
+=== Creating Processes
+
+An average Linux system is always creating new processes.
+T__his is often called forking;
+the original parent process keeps running, while the new child process starts.__
+
+_Often, rather than just a fork, one follows it with an exec, where the parent process terminates, and the child process inherits the process ID of the parent.
+The term fork and exec is used so often, people think of it sometimes as one word._
+
+Older UNIX systems often used a program called spawn, which is similar in many ways to fork and exec, but differs in details.
+It is not part of the POSIX standard and is not a normal part of Linux.
+
+To see how new processes may start, consider a web server that handles many clients.
+It may launch a new process every time a new connection is made with a client.
+On the other hand, it may simply start only a new thread as part of the same process;
+in Linux, there really is not much difference on a technical level between creating a full process or just a new thread, as each mechanism takes about the same time and uses roughly the same amount of resources.
+
+As another example, the sshd daemon is started when the init process executes the sshd init script, which then is responsible for launching the sshd daemon.
+This daemon process listens for ssh requests from remote users.
+
+When a request is received, sshd creates a new copy of itself to service the request.
+Each remote user gets their own copy of the sshd daemon running to service their remote login.
+The sshd process will start the login program to validate the remote user.
+If the authentication succeeds, the login process will fork off a shell (say bash) to interpret the user commands, and so on.
+
+Internal kernel processes take care of maintenance work, such as making sure buffers get flushed out to disk, that the load on different CPUs is balanced evenly, that device drivers handle work that has been queued up for them to do, etc.
+These processes often run as long as the system is running, sleeping except when they have something to do.
+
+External processes are processes which run in user space like normal applications, but which the kernel started.
+There are very few of these and they are usually short lived.
+
+It is easy to see which processes are of this nature;
+when you run a command such as
+
+$ ps -elf (-e: show all, -l: long format, -f: full format (more complete info))
+
+to list all processes on the system while showing the parent process IDs, they will all have PPID = 2, which refers to kthreadd, the internal kernel thread whose job is to create such processes, and their names will be encapsulated in square brackets, such as [ksoftirqd/0].
+
+[discrete]
+=== Creating Processes in a Command Shell
+
+What happens when a user executes a command in a command shell interpreter, such as bash?
+
+A new process is created (forked from the user's login shell).
+A wait system call puts the parent shell process to sleep.
+The command is loaded onto the child process's space via the exec system call.
+In other words, the code for the command replaces the bash program in the child process's memory space.
+The command completes executing, and the child process dies via the exit system call.
+The parent shell is re-awakened by the death of the child process and proceeds to issue a new shell prompt.
+The parent shell then waits for the next command request from the user, at which time the cycle will be repeated.
+
+_If a command is issued for background processing (by adding an ampersand -&- at the end of the command line), the parent shell skips the wait request and is free to issue a new shell prompt immediately_, allowing the background process to execute in parallel.
+Otherwise, for foreground requests, the shell waits until the child process has completed or is stopped via a signal.
+
+Some shell commands (such as echo and kill) are built into the shell itself, and do not involve loading of program files.
+For these commands, no fork or exec are issued for the execution.
+
+[discrete]
+=== Using nice to Set Priorities
+
+Process priority can be controlled through the nice and renice commands.
+Since the early days of UNIX, the idea has been that a nice process lowers its priority to yield to others.
+Thus, the higher the niceness is, the lower the priority.
+
+_The niceness value can range from -20 (the highest priority) to +19 (the lowest priority)._ The normal way to run nice is as in:
+
+$ nice -n 5 command [ARGS]
+
+which would increase the niceness by 5.
+This is equivalent to doing:
+
+$ nice -5 command [ARGS]
+
+If you do not give a nice value, the default is to increase the niceness by 10.
+If you give no arguments at all, you report your current niceness.
+So, for example:
+
+[source,console]
+----
+$ nice
+0
+
+$ nice cat &
+[1] 24908
+
+$ ps -l
+F S UID   PID  PPID C PRI NI ADDR SZ WCHAN  TTY       TIME CMD
+0 S 500  4670  4603 0 80   0 - 16618 wait   pts/0 00:00:00 bash
+0 S 500 24855  4670 0 80   0 - 16560 wait   pts/0 00:00:00 bash
+0 T 500 24908 24855 0 90  10 - 14738 signal pts/0 00:00:00 cat
+0 R 500 24909 24855 0 80   0 - 15887 -      pts/0 00:00:00 ps
+----
+
+Note that increasing the niceness of a process does not mean it won't run;
+it may even get all the CPU time if there is nothing else with which to compete.
+
+If you supply such a large increment or decrement that you try to step outside the -20 to 19 range, the increment value will be truncated.
+
+[discrete]
+=== Modifying the Nice Value
+
+renice is used to raise or lower the nice value of an already running process.
+It basically lets you change the nice value on the fly.
+
+$ renice --help
+
+Usage:  renice [-n] [-p|--pid] +++<pid>+++\...
+renice [-n] -g|--pgrp +++<pgid>+++\...
+renice [-n] -u|--user +++<user>+++\...+++</user>++++++</pgid>++++++</pid>+++
+
+Raise the nice value of pid 20003 to 5 :
+
+$ renice +5 -p 20003
+
+By default, only a superuser can decrease the niceness;
+i.e., increase the priority.
+However, it is possible to give normal users the ability to decrease their niceness within a predetermined range, by editing /etc/security/limits.conf.
+
+After a non-privileged user has increased the nice value, only a superuser can lower it back.
+More than one process can be done at the same time, and there are some other options, so see man renice.
+
+[discrete]
+=== Static and Shared Libraries
+
+Programs are built using libraries of code, developed for multiple purposes and used and reused in many contexts.
+
+*_Static:_* Code for the library functions is inserted at compile time, and does not change thereafter, even if the library is update.
+
+*_Shared:_* Code for the library functions is loaded by the program at run time, and if the library is changed, the program runs with the new library modifications.
+Shared libraries are also called DLL.
+
+[discrete]
+=== Shared Library Versions
+
+Shared libraries need to be carefully versioned.
+If there is a significant change to the library and a program is not equipped to handle it, serious problems can be expected.
+This is sometimes known as DLL Hell.
+
+Therefore, programs can request a specific major library version, rather than the latest one on the system.
+However, usually the program will always use the latest minor version available.
+
+Some application providers will use static libraries bundled into the program to avoid these problems.
+However, if there are improvements or bugs and security holes fixed in the libraries, they may not make it into the applications in a timely fashion.
+
+Shared libraries have the extension .so.
+Typically, the full name is something like libc.so.N, where N is a major version number.
+
+Under Linux, shared libraries are carefully versioned.
+For example:
+
+c7:/usr/lib64>ls -lF libgdbm.so* lrwxrwxrwx 1 root root    16 Apr  9 2015 libgdbm.so \-> libgdbm.so.4.0.0* lrwxrwxrwx 1 root root    16 Apr  9 2015 libgdbm.so.4 \-> libgdbm.so.4.0.0* -rwxr-xr-x 1 root root 36720 Jan 24 2014 libgdbm.so.4.0.0* c7:/usr/lib64>
+
+so a program that just asks for libgdm gets libgdm.so and the others for specific major and minor versions.
+
+[discrete]
+=== Finding Shared Libraries
+
+A program which uses shared libraries has to be able to find them at runtime.
+
+ldd can be used to ascertain what shared libraries an executable requires.
+It shows the soname of the library and what file it actually points to.
+
+`tom@aur6a:~$ ldd /usr/bin/zip` `	linux-vdso.so.1 (0x00007ffce31c8000)` `+	libbz2.so.1.0 => /lib/x86_64-linux-gnu/libbz2.so.1.0 (0x00007fe6b648f000)+` `+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fe6b629d000)+` `	/lib64/ld-linux-x86-64.so.2 (0x00007fe6b6745000)`
+
+Output of ldd /usr/bin/zip command
+
+ldconfig is generally run at boot time (but can be run anytime), and uses /etc/ld.so.conf, which lists the directories that will be searched for shared libraries.
+ldconfig must be run as root, and shared libraries should only be stored in system directories when they are stable and useful.
+
+Besides searching the database built up by ldconfig, the linker will first search any directories specified in the environment variable LD_LIBRARY_PATH, a colon separated list of directories, as in the PATH variable.
+So, you can do:
+
+$ LD_LIBRARY_PATH=$HOME/foo/lib ; foo [args]
+
+or
+
+$ LD_LIBRARY_PATH=$HOME/foo/lib foo [args]
+
+'''
+
+[discrete]
+=== Exercise 3.1: Controlling Processes with ulimit
+
+Please do: $ help ulimit and read /etc/security/limits.conf before doing the following steps.
+
+. Start a new shell by typing bash (or opening a new terminal) so that your changes are only effective in the new shell.
+
+View the current limit on the number of open files and explicitly view the hard and soft limits.
+
+. Set the limit to the hard limit value and verify if it worked.
+. Set the hard limit to 2048 and verify it worked.
+. Try to set the limit back to the previous value.
+Did it work?
++
+```
+ubuntu@ip-172-31-21-230:~$ help ulimit  ulimit: ulimit [-SHabcdefiklmnpqrstuvxPT] [limit]      Modify shell resource limits.
+
+  Provides control over the resources available to the shell and processes
+  it creates, on systems that allow such control.
+
+  Options:
+    -S	use the `soft' resource limit
+    -H	use the `hard' resource limit
+    -a	all current limits are reported
+    -b	the socket buffer size
+    -c	the maximum size of core files created
+    -d	the maximum size of a process's data segment
+    -e	the maximum scheduling priority (`nice')
+    -f	the maximum size of files written by the shell and its children
+    -i	the maximum number of pending signals
+    -k	the maximum number of kqueues allocated for this process
+    -l	the maximum size a process may lock into memory
+    -m	the maximum resident set size
+    -n	the maximum number of open file descriptors
+    -p	the pipe buffer size
+    -q	the maximum number of bytes in POSIX message queues
+    -r	the maximum real-time scheduling priority
+    -s	the maximum stack size
+    -t	the maximum amount of cpu time in seconds
+    -u	the maximum number of user processes
+    -v	the size of virtual memory
+    -x	the maximum number of file locks
+    -P	the maximum number of pseudoterminals
+    -T	the maximum number of threads
+
+  Not all options are available on all platforms.
+
+  If LIMIT is given, it is the new value of the specified resource; the
+  special LIMIT values `soft', `hard', and `unlimited' stand for the
+  current soft limit, the current hard limit, and no limit, respectively.
+  Otherwise, the current value of the specified resource is printed.  If
+  no option is given, then -f is assumed.
+
+  Values are in 1024-byte increments, except for -t, which is in seconds,
+  -p, which is in increments of 512 bytes, and -u, which is an unscaled
+  number of processes.
+
+  Exit Status:
+  Returns success unless an invalid option is supplied or an error occurs.
+```
+
+ubuntu@ip-172-31-21-230:~$
+
+=== /etc/security/limits.conf
+
+```
+# /etc/security/limits.conf
+#
+#Each line describes a limit for a user in the form:
+#
+#<domain>        <type>  <item>  <value>
+#
+#Where:
+#<domain> can be:
+#        - a user name
+#        - a group name, with @group syntax
+#        - the wildcard *, for default entry
+#        - the wildcard %, can be also used with %group syntax,
+#                 for maxlogin limit
+#        - NOTE: group and wildcard limits are not applied to root.
+#          To apply a limit to the root user, <domain> must be
+#          the literal username root.
+#
+#<type> can have the two values:
+#        - "soft" for enforcing the soft limits
+#        - "hard" for enforcing hard limits
+#
+#<item> can be one of the following:
+#        - core - limits the core file size (KB)
+#        - data - max data size (KB)
+#        - fsize - maximum filesize (KB)
+#        - memlock - max locked-in-memory address space (KB)
+#        - nofile - max number of open file descriptors
+#        - rss - max resident set size (KB)
+#        - stack - max stack size (KB)
+#        - cpu - max CPU time (MIN)
+#        - nproc - max number of processes
+#        - as - address space limit (KB)
+#        - maxlogins - max number of logins for this user
+#        - maxsyslogins - max number of logins on the system
+#        - priority - the priority to run user process with
+#        - locks - max number of file locks the user can hold
+#        - sigpending - max number of pending signals
+#        - msgqueue - max memory used by POSIX message queues (bytes)
+#        - nice - max nice priority allowed to raise to values: [-20, 19]
+#        - rtprio - max realtime priority
+#        - chroot - change root to directory (Debian-specific)
+#
+#<domain>      <type>  <item>         <value>
+#
+
+#*               soft    core            0
+#root            hard    core            100000
+#*               hard    rss             10000
+#@student        hard    nproc           20
+#@faculty        soft    nproc           20
+#@faculty        hard    nproc           50
+#ftp             hard    nproc           0
+#ftp             -       chroot          /ftp
+#@student        -       maxlogins       4
+
+# End of file
+```
+
+[discrete]
+=== \...viewing current limits
+```
+ubuntu@ip-172-31-21-230:~$ ulimit -a core file size          (blocks, -c) 0 data seg size           (kbytes, -d) unlimited scheduling priority             (-e) 0 file size               (blocks, -f) unlimited pending signals                 (-i) 3869 max locked memory       (kbytes, -l) 65536 max memory size         (kbytes, -m) unlimited open files                      (-n) 1024 pipe size            (512 bytes, -p) 8 POSIX message queues     (bytes, -q) 819200 real-time priority              (-r) 0 stack size              (kbytes, -s) 8192 cpu time               (seconds, -t) unlimited max user processes              (-u) 3869 virtual memory          (kbytes, -v) unlimited file locks                      (-x) unlimited ubuntu@ip-172-31-21-230:~$
+```
+
+[discrete]
+=== \...Set Hard limit of open files to 4096
+```
+ ubuntu@ip-172-31-21-230:~$ bash
+ ubuntu@ip-172-31-21-230:~$ ulimit -n
+ 1024
+ ubuntu@ip-172-31-21-230:~$ ulimit -S -n
+ 1024
+ ubuntu@ip-172-31-21-230:~$ ulimit -H -n
+ 1048576
+ ubuntu@ip-172-31-21-230:~$ ulimit -n hard
+ ubuntu@ip-172-31-21-230:~$ ulimit -n
+ 1048576
+ ubuntu@ip-172-31-21-230:~$ ulimit -n 2048
+ ubuntu@ip-172-31-21-230:~$ ulimit -n
+ 2048
+ ubuntu@ip-172-31-21-230:~$ ulimit -n 4096
+ bash: ulimit: open files: cannot modify limit: Operation not permitted
+ ubuntu@ip-172-31-21-230:~$ ulimit -n
+ 2048
+ ubuntu@ip-172-31-21-230:~$ exit
+ exit
+ ubuntu@ip-172-31-21-230:~$ ulimit -a
+ core file size          (blocks, -c) 0
+ data seg size           (kbytes, -d) unlimited
+ scheduling priority             (-e) 0
+ file size               (blocks, -f) unlimited
+ pending signals                 (-i) 3869
+ max locked memory       (kbytes, -l) 65536
+ max memory size         (kbytes, -m) unlimited
+ open files                      (-n) 1024
+ pipe size            (512 bytes, -p) 8
+ POSIX message queues     (bytes, -q) 819200
+ real-time priority              (-r) 0
+ stack size              (kbytes, -s) 8192
+ cpu time               (seconds, -t) unlimited
+ max user processes              (-u) 3869
+ virtual memory          (kbytes, -v) unlimited
+ file locks                      (-x) unlimited
+ ubuntu@ip-172-31-21-230:~$
+```
+
+[discrete]
+=== Exercise 3.2: Examining System V IPC Activity
+
+System V IPC is a rather old method of Inter Process Communication that dates back to the early days of UNIX.
+It involves three mechanisms:
+
+. Shared Memory Segments
+. Semaphores
+. Message Queues
+
+More modern programs tend to use POSIX IPC methods for all three of these mechanisms, but there are still plenty of System V IPC applications found in the wild.
+To get an overall summary of System V IPC activity on your system, do: 	$ ipcs 	------ Message Queues -------- 	key 	msqid 	owner 	perms 	used-bytes 	------ Shared Memory Segments -------- 	key 	shmid 	owner 	perms 	0x01114703 0 	root 	600 	0x00000000 98305 	coop 	600 	0x00000000 196610 	coop 	600 	0x00000000 23068675 	coop 	700 	0x00000000 23101444 	coop 	600 	0x00000000 23134213 	coop 	600 	0x00000000 24051718 	coop 	600 	0x00000000 23756807 	coop 	600 	0x00000000 24018952 	coop 	600 	0x00000000 23363593 	coop 	700 	0x00000000 1441811 	coop 	600 bytes 	1000 	4194304 	4194304 	1138176 	393216 	524288 	393216 	524288 	67108864 	95408 	2097152 	------ Semaphore Arrays -------- 	key 	semid 	owner 	0x00000000 98304 	apache 	0x00000000 131073 	apache 	0x00000000 163842 	apache 	0x00000000 196611 	apache 	0x00000000 229380 	apache nsems 	1 	1 	1 	1 	1 	perms 	600 	600 	600 	600 	600 	messages 	nattch 	6 	2 	2 	2 	2 	2 	2 	2 	2 	2 	2 	status 	dest 	dest 	dest 	dest 	dest 	dest 	dest 	dest 	dest 	dest
+
+Note almost all of the currently running shared memory segments have a key of 0 (also known as IPC_PRIVATE ) which means they are only shared between processes in a parent/child relationship.
+Furthermore, all but one are marked for destruction when there are no further attachments.
+One can gain further information about the processes that have created the segments and last attached to them with: $ ipcs -p ------ Message Queues PIDs -------- msqid owner lspid lrpid ------ Shared Memory Creator/Last-op PIDs -------- shmid owner cpid lpid 0 root 1023 1023 V 2020-07-10 © Copyright the Linux Foundation 2020.
+All rights reserved.2 98305 196610 23068675 23101444 23134213 24051718 23756807 24018952 23363593 1441811 CHAPTER 3.
+PROCESSES coop coop coop coop coop coop coop coop coop coop 2265 2138 989 989 989 20573 10735 17875 989 2048 18780 18775 1663 1663 1663 1663 1663 1663 1663 20573 Thus, by doing: $ ps aux |grep -e 20573 -e 2048 coop coop coop 2048 20573 20710 5.3 1.9 0.0 3.7 1922996 305660 ?
+1.7 807944 141688 ?
+0.0 112652 2312 pts/0 Rl Sl S+ Oct27 09:56 09:57 77:07 /usr/bin/gnome-shell 0:01 /usr/lib64/thunderbird/thunderbird 0:00 grep --color=auto -e 20573 -e 2048 we see thunderbird is using a shared memory segment created by gnome-shell.
+Perform these steps on your system and identify the various resources being used and by who.
+Are there any potential leaks (shared resources no longer being used by any active processes) on the system?
+For example, doing: $ ipcs \....
+------ Shared Memory Segments -------- key shmid owner perms \....
+0x00000000 622601 coop 600 0x0000001a 13303818 coop 666 \....
+bytes nattch status 2097152 8196 2 0 dest shows a shared memory segment with no attachments and not marked for destruction.
+Thus it might persist forever, leaking memory if no subsequent process attaches to it.
+V 2020-07-10 © Copyright the Linux Foundation 2020.
+All rights reserved.

@@ -1,0 +1,343 @@
+:doctype: book
+
+Chapter 9 - Zypper
+
+= Chapter 9 - Zypper
+
+## Chapter 9 Introduction
+
+For use on SUSE-based systems, the zypper program provides a higher level of intelligent services for using the underlying rpm program, and plays the same role as yum on Red Hat-based systems.
+It can automatically resolve dependencies when installing, updating and removing packages.
+It accesses external software repositories, synchronizing with them and retrieving and installing software as needed.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain what zypper is.
+* Discuss the queries zypper can be used for.
+* Install, remove and upgrade packages using zypper.
+* Learn additional and more advanced zypper commands.
+
+== What Is zypper?
+
+zypper is the higher-level command line tool for installing and managing packages in SUSE Linux and openSUSE.
+It is very similar to yum in its functionality and even in its basic command syntax, and also works with rpm packages.
+
+zypper retrieves packages from repositories, installs, removes and updates while resolving any dependencies encountered.
+It accesses external software repositories, synchronizing with them and retrieving and installing software as needed.
+
+== zypper Queries
+
+Next, let's take a look at some examples of commonly performed operations involving querying.
+
+Show a list of available updates:
+
+`$ zypper list-updates`
+
+List available repositories:
+
+`$ zypper repos`
+
+Search repositories for string:
+
+`$ zypper search <string>`
+
+List information about a package:
+
+`$ zypper info firefox`
+
+Search repositories to ascertain what packages provide a file:
+
+`$ zypper search --provides /usr/bin/firefox`
+
+== Installing/Removing/Upgrading Packages with zypper
+
+Next, let's look at some examples of commonly performed zypper operations.
+
+Install or update package(s):
+
+`$ sudo zypper install firefox`
+
+Do not ask for confirmation when installing or upgrading:
+
+`$ sudo zypper --non-interactive install firefox`
+
+This is useful for scripts and is equivalent to running yum -y.
+
+Update all installed packages:
+
+`$ sudo zypper update`
+
+Giving package names as an argument will update only those packages and any required dependencies.
+Do this without asking for confirmation:
+
+`$ sudo zypper --non-interactive update`
+
+Remove a package from the system:
+
+`$ sudo zypper remove firefox`
+
+Like with yum, you have to be careful with the removal command, as any package that needs the package being removed would be removed as well.
+
+== Additional zypper Commands
+
+Sometimes, a number of zypper commands must be run in a sequence.
+To avoid re-reading all the databases for each command, you can run zypper in shell mode, as in:
+
+`+ $ sudo zypper shell > install bash ...
+> exit +`
+
+Because zypper supports the readline library, you can use all the same command line editing functions in the zypper shell available in the bash shell.
+
+=== To add a new repository:
+
+`$ sudo zypper addrepo URI alias`
+
+which is located at the supplied URI and will use the supplied alias.
+
+=== To remove a repository from the list:
+
+`$ sudo zypper removerepo alias`
+
+using the alias of the repository you want to delete.
+
+=== To clean up and save space in /var/cache/zypp:
+
+`$ sudo zypper clean [--all]`
+
+== Exercise 9.1: Basic zypper Commands
+
+. Check to see if there are any available updates for your system.
+. Update a particular package.
+. List all repositories the system is aware of, enabled or not.
+. List all installed kernel-related packages, and list all installed or available ones.
+. Install the apache2-devel package, or anything else you might not have installed yet.
+(Note httpd is apache2 on SUSE systems.) Doing a simple: `$ sudo zypper search` will let you see a complete list;
+you may want to give a wildcard argument to narrow the list.
+
+``` ec2-user@ip-172-31-27-212:~> zypper list-updates Repository 'SLE-Module-Basesystem15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Containers15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Desktop-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-DevTools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Legacy15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Public-Cloud15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Python2-15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-CAP-Tools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Product-SLES15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Server-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Web-Scripting15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Loading repository data\...
+Reading installed packages\...
+S | Repository                            | Name                   | Current Version                 | Available Version               | Arch --+---------------------------------------+------------------------+---------------------------------+---------------------------------+------- v | SLE-Module-Basesystem15-SP2-Updates   | SUSEConnect            | 0.3.28-3.3.1                    | 0.3.29-3.6.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | curl                   | 7.66.0-4.6.1                    | 7.66.0-4.11.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | device-mapper          | 1.02.163-8.6.1                  | 1.02.163-8.18.1                 | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | dmidecode              | 3.2-9.6.1                       | 3.2-9.11.1                      | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | dracut                 | 049.1+suse.171.g65b2addf-3.15.1 | 049.1+suse.183.g7282fe92-3.18.2 | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | gio-branding-SLE       | 15-12.47                        | 15-14.2.1                       | noarch v | SLE-Module-Basesystem15-SP2-Updates   | glib2-tools            | 2.62.5-1.26                     | 2.62.6-3.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | groff                  | 1.22.3-3.12                     | 1.22.3-5.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | gzip                   | 1.10-1.81                       | 1.10-3.3.1                      | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | hwinfo                 | 21.70-1.8                       | 21.71-3.3.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | iscsiuio               | 0.7.8.6-22.3.1                  | 0.7.8.6-22.6.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | kernel-default         | 5.3.18-24.37.1                  | 5.3.18-24.46.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | kexec-tools            | 2.0.20-3.23                     | 2.0.20-5.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | keyutils               | 1.5.10-3.42                     | 1.5.10-5.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libblkid1              | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libcurl4               | 7.66.0-4.6.1                    | 7.66.0-4.11.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libdevmapper-event1_03 | 1.02.163-8.6.1                  | 1.02.163-8.18.1                 | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libdevmapper1_03       | 1.02.163-8.6.1                  | 1.02.163-8.18.1                 | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libfdisk1              | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libgio-2_0-0           | 2.62.5-1.26                     | 2.62.6-3.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libglib-2_0-0          | 2.62.5-1.26                     | 2.62.6-3.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libgmodule-2_0-0       | 2.62.5-1.26                     | 2.62.6-3.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libgnutls30            | 3.6.7-14.4.1                    | 3.6.7-14.7.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libgobject-2_0-0       | 2.62.5-1.26                     | 2.62.6-3.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libidn2-0              | 2.2.0-3.3.1                     | 2.2.0-3.6.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libkeyutils1           | 1.5.10-3.42                     | 1.5.10-5.3.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libldap-2_4-2          | 2.4.46-9.40.1                   | 2.4.46-9.45.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libldap-data           | 2.4.46-9.40.1                   | 2.4.46-9.45.1                   | noarch v | SLE-Module-Basesystem15-SP2-Updates   | liblvm2cmd2_03         | 2.03.05-8.6.1                   | 2.03.05-8.18.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libmount1              | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libopeniscsiusr0_2_0   | 2.1.2-22.3.1                    | 2.1.3-22.6.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libopenssl1_1          | 1.1.1d-11.9.1                   | 1.1.1d-11.12.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libpython3_6m1_0       | 3.6.12-3.64.2                   | 3.6.12-3.70.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libsmartcols1          | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libsolv-tools          | 0.7.15-3.10.5                   | 0.7.16-3.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libsystemd0            | 234-24.64.1                     | 234-24.72.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libudev1               | 234-24.64.1                     | 234-24.72.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libuuid1               | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libxml2-2              | 2.9.7-3.25.1                    | 2.9.7-3.28.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | libzypp                | 17.25.1-3.17.6                  | 17.25.6-3.28.2                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | lvm2                   | 2.03.05-8.6.1                   | 2.03.05-8.18.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | open-iscsi             | 2.1.2-22.3.1                    | 2.1.3-22.6.1                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | openldap2-client       | 2.4.46-9.40.1                   | 2.4.46-9.45.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | openssh                | 8.1p1-5.6.1                     | 8.1p1-5.9.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | openssl-1_1            | 1.1.1d-11.9.1                   | 1.1.1d-11.12.1                  | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | permissions            | 20181224-21.1                   | 20181224-23.3.1                 | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | polkit-default-privs   | 13.2+20200421.207b724-1.14      | 13.2+20201209.bd89a77-3.3.3     | noarch v | SLE-Module-Basesystem15-SP2-Updates   | python3                | 3.6.12-3.64.2                   | 3.6.12-3.70.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | python3-base           | 3.6.12-3.64.2                   | 3.6.12-3.70.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | python3-curses         | 3.6.12-3.64.2                   | 3.6.12-3.70.1                   | x86_64 v | SLE-Module-Public-Cloud15-SP2-Updates | python3-ec2imgutils    | 9.0.0-3.17.1                    | 9.0.1-3.20.1                    | noarch v | SLE-Module-Basesystem15-SP2-Updates   | python3-solv           | 0.7.15-3.10.5                   | 0.7.16-3.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | python3-urllib3        | 1.24-9.7.1                      | 1.24-9.10.1                     | noarch v | SLE-Product-SLES15-SP2-Updates        | release-notes-sles     | 15.2.20201007-3.6.1             | 15.2.20201217-3.9.1             | noarch v | SLE-Module-Basesystem15-SP2-Updates   | ruby-solv              | 0.7.15-3.10.5                   | 0.7.16-3.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | sudo                   | 1.8.22-4.12.2                   | 1.8.22-4.15.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | systemd                | 234-24.64.1                     | 234-24.72.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | systemd-sysvinit       | 234-24.64.1                     | 234-24.72.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | tcl                    | 8.6.7-5.43                      | 8.6.7-7.3.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | timezone               | 2020d-3.38.1                    | 2020f-3.41.2                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | udev                   | 234-24.64.1                     | 234-24.72.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | util-linux             | 2.33.1-4.8.1                    | 2.33.1-4.13.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | util-linux-systemd     | 2.33.1-4.8.1                    | 2.33.1-4.13.2                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | xen-libs               | 4.13.2_04-3.19.1                | 4.13.2_06-3.22.1                | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | xen-tools-domU         | 4.13.2_04-3.19.1                | 4.13.2_06-3.22.1                | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2                  | 4.2.87-3.8.1                    | 4.2.91-3.21.2                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2-installation     | 4.2.47-3.13.1                   | 4.2.48-3.16.1                   | noarch v | SLE-Module-Basesystem15-SP2-Updates   | yast2-logs             | 4.2.87-3.8.1                    | 4.2.91-3.21.2                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2-network          | 4.2.85-3.31.1                   | 4.2.87-3.36.1                   | noarch v | SLE-Module-Basesystem15-SP2-Updates   | yast2-packager         | 4.2.66-3.9.1                    | 4.2.67-3.12.1                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2-pkg-bindings     | 4.2.10-3.8.2                    | 4.2.15-3.12.2                   | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2-registration     | 4.2.43-3.6.1                    | 4.2.46-3.9.2                    | noarch v | SLE-Module-Basesystem15-SP2-Updates   | yast2-tune             | 4.2.3-1.31                      | 4.2.5-3.5.1                     | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | yast2-update           | 4.2.18-1.55                     | 4.2.20-3.4.2                    | x86_64 v | SLE-Module-Basesystem15-SP2-Updates   | zypper                 | 1.14.40-3.9.6                   | 1.14.42-3.17.1                  | x86_64 ec2-user@ip-172-31-27-212:~>
+
+ec2-user@ip-172-31-27-212:~> sudo zypper update zypper Refreshing service 'Basesystem_Module_x86_64'.
+Refreshing service 'Containers_Module_x86_64'.
+Refreshing service 'Desktop_Applications_Module_x86_64'.
+Refreshing service 'Development_Tools_Module_x86_64'.
+Refreshing service 'Legacy_Module_x86_64'.
+Refreshing service 'Public_Cloud_Module_x86_64'.
+Refreshing service 'Python_2_Module_x86_64'.
+Refreshing service 'SUSE_Cloud_Application_Platform_Tools_Module_x86_64'.
+Refreshing service 'SUSE_Linux_Enterprise_Server_x86_64'.
+Refreshing service 'Server_Applications_Module_x86_64'.
+Refreshing service 'Web_and_Scripting_Module_x86_64'.
+Retrieving repository 'SLE-Module-Basesystem15-SP2-Updates' metadata \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Building repository 'SLE-Module-Basesystem15-SP2-Updates' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Retrieving repository 'SLE-Module-Desktop-Applications15-SP2-Updates' metadata \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Building repository 'SLE-Module-Desktop-Applications15-SP2-Updates' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving repository 'SLE-Module-DevTools15-SP2-Updates' metadata \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Building repository 'SLE-Module-DevTools15-SP2-Updates' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving repository 'SLE-Module-Server-Applications15-SP2-Updates' metadata \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Building repository 'SLE-Module-Server-Applications15-SP2-Updates' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Loading repository data\...
+Reading installed packages\...
+Resolving package dependencies\...
+
+The following 8 NEW packages are going to be installed:   lifecycle-data-sle-module-basesystem lifecycle-data-sle-module-desktop-applications lifecycle-data-sle-module-development-tools lifecycle-data-sle-module-server-applications   zypper-lifecycle-plugin zypper-log zypper-needs-restarting zypper-search-packages-plugin
+
+The following 3 packages are going to be upgraded:   libsolv-tools libzypp zypper
+
+3 packages to upgrade, 8 new.
+Overall download size: 4.7 MiB.
+Already cached: 0 B.
+After the operation, additional 275.4 KiB will be used.
+Continue?
+[y/n/v/\...?
+shows all options] (y):  Retrieving package libsolv-tools-0.7.16-3.13.1.x86_64                                                                                                   (1/11), 632.8 KiB (  5.0 MiB unpacked) Retrieving: libsolv-tools-0.7.16-3.13.1.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Retrieving package lifecycle-data-sle-module-basesystem-2-8.4.1.x86_64                                                                                  (2/11),  15.5 KiB ( 17.9 KiB unpacked) Retrieving: lifecycle-data-sle-module-basesystem-2-8.4.1.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving package zypper-log-1.14.42-3.17.1.noarch                                                                                                     (3/11),  47.0 KiB (  6.2 KiB unpacked) Retrieving: zypper-log-1.14.42-3.17.1.noarch.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Retrieving package libzypp-17.25.6-3.28.2.x86_64                                                                                                        (4/11),   2.3 MiB (  8.3 MiB unpacked) Retrieving: libzypp-17.25.6-3.28.2.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Retrieving package zypper-1.14.42-3.17.1.x86_64                                                                                                         (5/11),   1.6 MiB (  7.6 MiB unpacked) Retrieving: zypper-1.14.42-3.17.1.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Retrieving package zypper-needs-restarting-1.14.42-3.17.1.noarch                                                                                        (6/11),  45.7 KiB (  2.3 KiB unpacked) Retrieving: zypper-needs-restarting-1.14.42-3.17.1.noarch.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving package lifecycle-data-sle-module-desktop-applications-1-5.4.1.x86_64                                                                        (7/11),  15.5 KiB ( 17.8 KiB unpacked) Retrieving: lifecycle-data-sle-module-desktop-applications-1-5.4.1.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Retrieving package lifecycle-data-sle-module-development-tools-1-3.7.1.noarch                                                                           (8/11),  15.0 KiB ( 18.9 KiB unpacked) Retrieving: lifecycle-data-sle-module-development-tools-1-3.7.1.noarch.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] Retrieving package lifecycle-data-sle-module-server-applications-1-5.4.1.x86_64                                                                         (9/11),  15.5 KiB ( 17.8 KiB unpacked) Retrieving: lifecycle-data-sle-module-server-applications-1-5.4.1.x86_64.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving package zypper-search-packages-plugin-0.7-5.35.noarch                                                                                       (10/11),  19.1 KiB ( 29.6 KiB unpacked) Retrieving: zypper-search-packages-plugin-0.7-5.35.noarch.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] Retrieving package zypper-lifecycle-plugin-0.6.1490613702.a925823-2.43.noarch                                                                          (11/11),  19.9 KiB ( 18.0 KiB unpacked) Retrieving: zypper-lifecycle-plugin-0.6.1490613702.a925823-2.43.noarch.rpm \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done]
+
+Checking for file conflicts: \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] ( 1/11) Installing: libsolv-tools-0.7.16-3.13.1.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] ( 2/11) Installing: lifecycle-data-sle-module-basesystem-2-8.4.1.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] ( 3/11) Installing: zypper-log-1.14.42-3.17.1.noarch \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] ( 4/11) Installing: libzypp-17.25.6-3.28.2.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[done] ( 5/11) Installing: zypper-1.14.42-3.17.1.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] ( 6/11) Installing: zypper-needs-restarting-1.14.42-3.17.1.noarch \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] ( 7/11) Installing: lifecycle-data-sle-module-desktop-applications-1-5.4.1.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] ( 8/11) Installing: lifecycle-data-sle-module-development-tools-1-3.7.1.noarch \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] ( 9/11) Installing: lifecycle-data-sle-module-server-applications-1-5.4.1.x86_64 \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] (10/11) Installing: zypper-search-packages-plugin-0.7-5.35.noarch \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[done] (11/11) Installing: zypper-lifecycle-plugin-0.6.1490613702.a925823-2.43.noarch \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[done] Additional rpm output: Updating /etc/sysconfig/lifecycle-report \...
+
+ec2-user@ip-172-31-27-212:~> zypper repos Repository priorities are without effect.
+All enabled repositories share the same priority.
+
+= | Alias                                                                                            | Name                                                    | Enabled | GPG Check | Refresh
+
+---+--------------------------------------------------------------------------------------------------+---------------------------------------------------------+---------+-----------+--------  1 | Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Debuginfo-Pool                              | SLE-Module-Basesystem15-SP2-Debuginfo-Pool              | No      | ----      | ----  2 | Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Debuginfo-Updates                           | SLE-Module-Basesystem15-SP2-Debuginfo-Updates           | No      | ----      | ----  3 | Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Pool                                        | SLE-Module-Basesystem15-SP2-Pool                        | Yes     | (r ) Yes  | No  4 | Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Source-Pool                                 | SLE-Module-Basesystem15-SP2-Source-Pool                 | No      | ----      | ----  5 | Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Updates                                     | SLE-Module-Basesystem15-SP2-Updates                     | Yes     | (r ) Yes  | Yes  6 | Containers_Module_x86_64:SLE-Module-Containers15-SP2-Debuginfo-Pool                              | SLE-Module-Containers15-SP2-Debuginfo-Pool              | No      | ----      | ----  7 | Containers_Module_x86_64:SLE-Module-Containers15-SP2-Debuginfo-Updates                           | SLE-Module-Containers15-SP2-Debuginfo-Updates           | No      | ----      | ----  8 | Containers_Module_x86_64:SLE-Module-Containers15-SP2-Pool                                        | SLE-Module-Containers15-SP2-Pool                        | Yes     | (r ) Yes  | No  9 | Containers_Module_x86_64:SLE-Module-Containers15-SP2-Source-Pool                                 | SLE-Module-Containers15-SP2-Source-Pool                 | No      | ----      | ---- 10 | Containers_Module_x86_64:SLE-Module-Containers15-SP2-Updates                                     | SLE-Module-Containers15-SP2-Updates                     | Yes     | (r ) Yes  | Yes 11 | Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Debuginfo-Pool          | SLE-Module-Desktop-Applications15-SP2-Debuginfo-Pool    | No      | ----      | ---- 12 | Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Debuginfo-Updates       | SLE-Module-Desktop-Applications15-SP2-Debuginfo-Updates | No      | ----      | ---- 13 | Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Pool                    | SLE-Module-Desktop-Applications15-SP2-Pool              | Yes     | (r ) Yes  | No 14 | Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Source-Pool             | SLE-Module-Desktop-Applications15-SP2-Source-Pool       | No      | ----      | ---- 15 | Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Updates                 | SLE-Module-Desktop-Applications15-SP2-Updates           | Yes     | (r ) Yes  | Yes 16 | Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Debuginfo-Pool                         | SLE-Module-DevTools15-SP2-Debuginfo-Pool                | No      | ----      | ---- 17 | Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Debuginfo-Updates                      | SLE-Module-DevTools15-SP2-Debuginfo-Updates             | No      | ----      | ---- 18 | Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Pool                                   | SLE-Module-DevTools15-SP2-Pool                          | Yes     | (r ) Yes  | No 19 | Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Source-Pool                            | SLE-Module-DevTools15-SP2-Source-Pool                   | No      | ----      | ---- 20 | Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Updates                                | SLE-Module-DevTools15-SP2-Updates                       | Yes     | (r ) Yes  | Yes 21 | Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Debuginfo-Pool                                      | SLE-Module-Legacy15-SP2-Debuginfo-Pool                  | No      | ----      | ---- 22 | Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Debuginfo-Updates                                   | SLE-Module-Legacy15-SP2-Debuginfo-Updates               | No      | ----      | ---- 23 | Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Pool                                                | SLE-Module-Legacy15-SP2-Pool                            | Yes     | (r ) Yes  | No 24 | Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Source-Pool                                         | SLE-Module-Legacy15-SP2-Source-Pool                     | No      | ----      | ---- 25 | Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Updates                                             | SLE-Module-Legacy15-SP2-Updates                         | Yes     | (r ) Yes  | Yes 26 | Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Debuginfo-Pool                          | SLE-Module-Public-Cloud15-SP2-Debuginfo-Pool            | No      | ----      | ---- 27 | Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Debuginfo-Updates                       | SLE-Module-Public-Cloud15-SP2-Debuginfo-Updates         | No      | ----      | ---- 28 | Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Pool                                    | SLE-Module-Public-Cloud15-SP2-Pool                      | Yes     | (r ) Yes  | No 29 | Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Source-Pool                             | SLE-Module-Public-Cloud15-SP2-Source-Pool               | No      | ----      | ---- 30 | Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Updates                                 | SLE-Module-Public-Cloud15-SP2-Updates                   | Yes     | (r ) Yes  | Yes 31 | Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Debuginfo-Pool                                  | SLE-Module-Python2-15-SP2-Debuginfo-Pool                | No      | ----      | ---- 32 | Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Debuginfo-Updates                               | SLE-Module-Python2-15-SP2-Debuginfo-Updates             | No      | ----      | ---- 33 | Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Pool                                            | SLE-Module-Python2-15-SP2-Pool                          | Yes     | (r ) Yes  | No 34 | Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Source-Pool                                     | SLE-Module-Python2-15-SP2-Source-Pool                   | No      | ----      | ---- 35 | Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Updates                                         | SLE-Module-Python2-15-SP2-Updates                       | Yes     | (r ) Yes  | Yes 36 | SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Debuginfo-Pool    | SLE-Module-CAP-Tools15-SP2-Debuginfo-Pool               | No      | ----      | ---- 37 | SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Debuginfo-Updates | SLE-Module-CAP-Tools15-SP2-Debuginfo-Updates            | No      | ----      | ---- 38 | SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Pool              | SLE-Module-CAP-Tools15-SP2-Pool                         | Yes     | (r ) Yes  | No 39 | SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Source-Pool       | SLE-Module-CAP-Tools15-SP2-Source-Pool                  | No      | ----      | ---- 40 | SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Updates           | SLE-Module-CAP-Tools15-SP2-Updates                      | Yes     | (r ) Yes  | Yes 41 | SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Debuginfo-Pool                        | SLE-Product-SLES15-SP2-Debuginfo-Pool                   | No      | ----      | ---- 42 | SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Debuginfo-Updates                     | SLE-Product-SLES15-SP2-Debuginfo-Updates                | No      | ----      | ---- 43 | SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Pool                                  | SLE-Product-SLES15-SP2-Pool                             | Yes     | (r ) Yes  | No 44 | SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Source-Pool                           | SLE-Product-SLES15-SP2-Source-Pool                      | No      | ----      | ---- 45 | SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Updates                               | SLE-Product-SLES15-SP2-Updates                          | Yes     | (r ) Yes  | Yes 46 | SUSE_Linux_Enterprise_Server_x86_64:SLE15-SP2-Installer-Updates                                  | SLE15-SP2-Installer-Updates                             | No      | ----      | ---- 47 | Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Debuginfo-Pool            | SLE-Module-Server-Applications15-SP2-Debuginfo-Pool     | No      | ----      | ---- 48 | Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Debuginfo-Updates         | SLE-Module-Server-Applications15-SP2-Debuginfo-Updates  | No      | ----      | ---- 49 | Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Pool                      | SLE-Module-Server-Applications15-SP2-Pool               | Yes     | (r ) Yes  | No 50 | Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Source-Pool               | SLE-Module-Server-Applications15-SP2-Source-Pool        | No      | ----      | ---- 51 | Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Updates                   | SLE-Module-Server-Applications15-SP2-Updates            | Yes     | (r ) Yes  | Yes 52 | Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Debuginfo-Pool                    | SLE-Module-Web-Scripting15-SP2-Debuginfo-Pool           | No      | ----      | ---- 53 | Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Debuginfo-Updates                 | SLE-Module-Web-Scripting15-SP2-Debuginfo-Updates        | No      | ----      | ---- 54 | Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Pool                              | SLE-Module-Web-Scripting15-SP2-Pool                     | Yes     | (r ) Yes  | No 55 | Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Source-Pool                       | SLE-Module-Web-Scripting15-SP2-Source-Pool              | No      | ----      | ---- 56 | Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Updates                           | SLE-Module-Web-Scripting15-SP2-Updates                  | Yes     | (r ) Yes  | Yes ec2-user@ip-172-31-27-212:~>  zypper search _kernel_ Building repository 'SLE-Module-Basesystem15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Basesystem_Module_x86_64:SLE-Module-Basesystem15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Basesystem15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Basesystem15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Basesystem15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Containers15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Containers_Module_x86_64:SLE-Module-Containers15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Containers15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Containers15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Containers15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Desktop-Applications15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Desktop_Applications_Module_x86_64:SLE-Module-Desktop-Applications15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Desktop-Applications15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Desktop-Applications15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Desktop-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-DevTools15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Development_Tools_Module_x86_64:SLE-Module-DevTools15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-DevTools15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-DevTools15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-DevTools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Legacy15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Legacy_Module_x86_64:SLE-Module-Legacy15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Legacy15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Legacy15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Legacy15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Public-Cloud15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Public_Cloud_Module_x86_64:SLE-Module-Public-Cloud15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Public-Cloud15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Public-Cloud15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Public-Cloud15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Python2-15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Python_2_Module_x86_64:SLE-Module-Python2-15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Python2-15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Python2-15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Python2-15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-CAP-Tools15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/SUSE_Cloud_Application_Platform_Tools_Module_x86_64:SLE-Module-CAP-Tools15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-CAP-Tools15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-CAP-Tools15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-CAP-Tools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Product-SLES15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/SUSE_Linux_Enterprise_Server_x86_64:SLE-Product-SLES15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Product-SLES15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Product-SLES15-SP2-Pool' because of the above error.
+Repository 'SLE-Product-SLES15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Server-Applications15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Server_Applications_Module_x86_64:SLE-Module-Server-Applications15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Server-Applications15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Server-Applications15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Server-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Building repository 'SLE-Module-Web-Scripting15-SP2-Pool' cache \...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\...\.....[error] Error building the cache: Can't create cache at /var/cache/zypp/solv/Web_and_Scripting_Module_x86_64:SLE-Module-Web-Scripting15-SP2-Pool - no writing permissions.
+Warning: The metadata cache needs to be built for the 'SLE-Module-Web-Scripting15-SP2-Pool' repository.
+You can run 'zypper refresh' as root to do this.
+Warning: Skipping repository 'SLE-Module-Web-Scripting15-SP2-Pool' because of the above error.
+Repository 'SLE-Module-Web-Scripting15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Some of the repositories have not been refreshed because of an error.
+Loading repository data\...
+Reading installed packages\...
+
+S  | Name                  | Summary                                                           | Type ---+-----------------------+-------------------------------------------------------------------+-----------    | kernel-azure          | Kernel for MS Azure cloud                                         | srcpackage    | kernel-azure          | Kernel for MS Azure cloud                                         | package    | kernel-azure-devel    | Development files necessary for building kernel modules           | package    | kernel-default        | The Standard Kernel                                               | srcpackage i+ | kernel-default        | The Standard Kernel                                               | package    | kernel-default-base   | The Standard Kernel - base modules                                | srcpackage    | kernel-default-base   | The Standard Kernel - base modules                                | package    | kernel-default-devel  | Development files necessary for building kernel modules           | package    | kernel-devel          | Development files needed for building kernel modules              | package    | kernel-devel-azure    | Development files needed for building kernel modules              | package    | kernel-docs           | Kernel Documentation                                              | package    | kernel-docs           | Kernel Documentation                                              | srcpackage    | kernel-firmware       | Linux kernel firmware files                                       | package    | kernel-firmware       | Linux kernel firmware files                                       | srcpackage    | kernel-macros         | RPM macros for building Kernel Module Packages                    | package    | kernel-obs-build      | package kernel and initrd for OBS VM builds                       | package    | kernel-preempt        | Kernel with PREEMPT support                                       | srcpackage    | kernel-preempt        | Kernel with PREEMPT support                                       | package    | kernel-preempt-devel  | Development files necessary for building kernel modules           | package    | kernel-source         | The Linux Kernel Sources                                          | srcpackage    | kernel-source         | The Linux Kernel Sources                                          | package    | kernel-source-azure   | The Linux Kernel Sources                                          | package    | kernel-source-azure   | The Linux Kernel Sources                                          | srcpackage    | kernel-syms           | Kernel Symbol Versions (modversions)                              | srcpackage    | kernel-syms           | Kernel Symbol Versions (modversions)                              | package    | kernel-syms-azure     | Kernel Symbol Versions (modversions)                              | srcpackage    | kernel-syms-azure     | Kernel Symbol Versions (modversions)                              | package i+ | nfs-kernel-server     | Support Utilities for Kernel nfsd                                 | package i  | purge-kernels-service | The service for removing old kernels when multiversion is enabled | package
+
+For an extended search including not yet activated remote resources you may run 'zypper search-packages' at any time.
+Do you want to run 'zypper search-packages' now?
+[yes/no/always/never] (no): y
+
+Could not search for the package: SUSE::Connect::UnsupportedOperation: Package search is not supported by the registration proxy: Alternatively, use the web version at https://scc.suse.com/packages/ No package found
+
+ec2-user@ip-172-31-27-212:~>  ```  ## Exercise 9.2: Using zypper to Find Information About a Package Using zypper (and not rpm directly), find: 1.
+All packages that contain a reference to bash in their name or description.
+2.
+Installed and available bash packages.
+3.
+The package information for bash.
+4.
+The dependencies for the bash package.
+Try the commands you used above both as root and as a regular user.
+Do you notice any difference?
+
+``` ec2-user@ip-172-31-27-212:~> zypper search bash Loading repository data\...
+Reading installed packages\...
+
+S | Name                            | Summary                                                           | Type --+---------------------------------+-------------------------------------------------------------------+-------- i | bash                            | The GNU Bourne-Again Shell                                        | package i | bash-completion                 | Programmable Completion for Bash                                  | package   | bash-completion-devel           | The Configuration of Programmable Completion for Bash             | package   | bash-completion-doc             | The Documentation of Programmable Completion for Bash             | package   | bash-devel                      | Include Files mandatory for Development of bash loadable builtins | package   | bash-doc                        | Documentation how to Use the GNU Bourne-Again Shell               | package   | bash-lang                       | Translations for package bash                                     | package   | checkbashisms                   | Tool for checking /bin/sh scripts for possible bashisms           | package i | docker-bash-completion          | Bash Completion for docker                                        | package   | iproute2-bash-completion        | Bash completion for iproute                                       | package   | kmod-bash-completion            | Bash completion routines for the kmod utilities                   | package   | libvirt-bash-completion         | Bash completion script                                            | package   | pulseaudio-bash-completion      | PulseAudio Bash completion                                        | package   | salt-bash-completion            | Bash Completion for salt                                          | package   | subversion-bash-completion      | Bash Completion for subversion                                    | package i | systemd-bash-completion         | Bash completion support for systemd                               | package   | texlive-bashful                 | Invoke bash commands from within LaTeX                            | package   | tpm2-tss-engine-bash-completion | Bash completion for tpm2-tss-engine                               | package
+
+For an extended search including not yet activated remote resources you may run 'zypper search-packages' at any time.
+Do you want to run 'zypper search-packages' now?
+[yes/no/always/never] (no): n : Ambiguous answer 'n'.
+(no,never) [yes/no/always/never] (no): no
+
+ec2-user@ip-172-31-27-212:~>
+
+ec2-user@ip-172-31-27-212:~> zypper info bash Repository 'SLE-Module-Basesystem15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Containers15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Desktop-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-DevTools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Legacy15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Public-Cloud15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Python2-15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-CAP-Tools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Product-SLES15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Server-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Web-Scripting15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Loading repository data\...
+Reading installed packages\...
+
+== Information for package bash:
+
+Repository     : SLE-Module-Basesystem15-SP2-Pool Name           : bash Version        : 4.4-9.10.1 Arch           : x86_64 Vendor         : SUSE LLC https://www.suse.com/ Support Level  : Level 3 Installed Size : 1.1 MiB Installed      : Yes (automatically) Status         : up-to-date Source package : bash-4.4-9.10.1.src Summary        : The GNU Bourne-Again Shell Description    :      Bash is an sh-compatible command interpreter that executes commands     read from standard input or from a file.
+Bash incorporates useful     features from the Korn and C shells (ksh and csh).
+Bash is intended to     be a conformant implementation of the IEEE Posix Shell and Tools     specification (IEEE Working Group 1003.2).
+
+ec2-user@ip-172-31-27-212:~> zypper info --requires bash Repository 'SLE-Module-Basesystem15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Containers15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Desktop-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-DevTools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Legacy15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Public-Cloud15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Python2-15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-CAP-Tools15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Product-SLES15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Server-Applications15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Repository 'SLE-Module-Web-Scripting15-SP2-Updates' is out-of-date.
+You can run 'zypper refresh' as root to update it.
+Loading repository data\...
+Reading installed packages\...
+
+== Information for package bash:
+
+Repository     : SLE-Module-Basesystem15-SP2-Pool Name           : bash Version        : 4.4-9.10.1 Arch           : x86_64 Vendor         : SUSE LLC https://www.suse.com/ Support Level  : Level 3 Installed Size : 1.1 MiB Installed      : Yes (automatically) Status         : up-to-date Source package : bash-4.4-9.10.1.src Summary        : The GNU Bourne-Again Shell Description    :      Bash is an sh-compatible command interpreter that executes commands     read from standard input or from a file.
+Bash incorporates useful     features from the Korn and C shells (ksh and csh).
+Bash is intended to     be a conformant implementation of the IEEE Posix Shell and Tools     specification (IEEE Working Group 1003.2).
+Requires       : [5]     libdl.so.2()(64bit)     libdl.so.2(GLIBC_2.2.5)(64bit)     libc.so.6(GLIBC_2.15)(64bit)     libreadline.so.7()(64bit)     libreadline.so.7(READLINE_6.3)(64bit)
+
+ec2-user@ip-172-31-27-212:~>  ```

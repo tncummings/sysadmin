@@ -1,0 +1,504 @@
+:doctype: book
+
+Chapter 10 - APT
+
+= Chapter 10 - APT
+
+## Chapter 10 Introduction
+
+For use on Debian-based systems, the APT (Advanced Packaging Tool) set of programs provides a higher level of intelligent services for using the underlying dpkg program, and plays the same role as yum on Red Hat-based systems.
+The main utilities are apt and apt-cache.
+It can automatically resolve dependencies when installing, updating and removing packages.
+It accesses external software repositories, synchronizing with them and retrieving and installing software as needed.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain what APT is.
+* Perform package queries.
+* Clean up system information about packages.
+* Install, remove, and upgrade packages using apt.
+
+== What Is APT?
+
+For use on Debian-based systems, the APT (Advanced Packaging Tool) set of programs provides a higher level of intelligent services for using the underlying dpkg program, and plays the same role as `yum` on Red Hat-based systems.
+The main utilities are `apt` and `apt-cache`.
+It can automatically resolve dependencies when installing, updating and removing packages.
+It accesses external software repositories, synchronizing with them and retrieving and installing software as needed.
+
+The APT system works with Debian packages whose files have a .deb extension.
+There are many distributions that have descended from Debian (including Ubuntu and Linux Mint) which have adopted the Debian packaging system with no essential modification.
+In fact, it is not uncommon to use a repository on more than one Debian-based Linux distribution.
+
+Once again, we are going to ignore graphical interfaces (on your computer), such as Synaptic or the Ubuntu Software Center, or other older front ends to APT, such as aptitude.
+
+== apt
+
+apt is the main APT command line tool for package management.
+It can be used to install, manage and upgrade individual packages, or the entire system.
+It can even upgrade the distribution to a completely new release, which can be a difficult task.
+
+There are even (imperfect) extensions that let apt work with rpm files.
+
+Like `yum` and `zypper`, it works with multiple remote repositories.
+
+For all interactive purposes, it is no longer necessary to use `apt-get`;
+you can just use the shorter name `apt`.
+However, you will see `apt-get` used all the time out of habit, and for use in scripts.
+
+Excellent Internet-based resources can be found on the https://www.debian.org/distrib/packages[Debian packages webpage] and the https://packages.ubuntu.com/[Ubuntu packages webpage].
+These databases let you search for packages, examine their contents, and download.
+
+== Queries
+
+Queries are done using the `apt-cache` or `apt-file` utilities.
+You may have to install apt-file first, and update its database, as in:
+
+`$ sudo apt install apt-file` `$ sudo apt-file update`
+
+Search the repository for a package named apache2:
+
+`$ apt-cache search apache2`
+
+Display basic information about the apache2 package:
+
+`$ apt-cache show apache2`
+
+Display more detailed information about the apache2 package:
+
+`$ apt-cache showpkg apache2`
+
+List all dependent packages for apache2:
+
+`$ apt-cache depends apache2`
+
+Search the repository for a file named apache2.conf:
+
+`$ apt-file search apache2.conf`
+
+List all files in the apache2 package:
+
+`$ apt-file list apache2`
+
+== Installing/Removing/Upgrading Packages with apt
+
+The apt program is the workhorse of installing, removing, and upgrading packages.
+
+Synchronize the package index files with their repository sources.
+The indexes of available packages are fetched from the location(s) specified in /etc/apt/sources.list:
+
+`$ sudo apt update`
+
+Install new packages or update an already installed package:
+
+`$ sudo apt install [package]`
+
+Remove a package from the system without removing its configuration files:
+
+`$ sudo apt remove [package]`
+
+Remove a package from the system, as well as its configuration files:
+
+`$ sudo apt --purge remove [package]`
+
+Apply all available updates to packages already installed:
+
+`$ sudo apt upgrade`
+
+Do a smart upgrade that will do a more thorough dependency resolution and remove some obsolete packages and install new dependencies:
+
+`$ sudo apt dist-upgrade`
+
+This will not update to a whole new version of the Linux distribution as is commonly misunderstood.
+
+*Note that you must update before you upgrade, unlike with yum, where the update argument does both steps, it updates the repositories and then upgrades the packages.
+This can be confusing to habitual yum users on Debian-based systems.*
+
+Get rid of any packages not needed anymore, such as older Linux kernel versions:
+
+`$ sudo apt autoremove`
+
+Clean out cache files and any archived package files that have been installed:
+
+`$ sudo apt clean`
+
+This can save a lot of space.
+
+Furthermore, you can reduce the amount of data stored in /var/cache/apt* without causing any harm by using clean as any new apt [update|upgrade] command will bring in the most current information back onto the system.
+
+== Exercise 10.1: Basic APT Commands
+
+. Check to see if there are any available updates for your system.
+. List all installed kernel-related packages, and list all installed or available ones.
+. Install the apache2-dev package, or anything else you might not have installed yet.
+Doing a simple: `$ apt-cache pkgnames` will let you see a complete list;
+you may want to give a wildcard argument to narrow the list.
+``` ubuntu@ip-172-31-21-230:~$ sudo apt update Hit:1 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal InRelease Get:2 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal-updates InRelease [114 kB] Get:3 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal-backports InRelease [101 kB] Hit:4 http://us.archive.ubuntu.com/ubuntu focal InRelease                    + Get:5 http://security.ubuntu.com/ubuntu focal-security InRelease [109 kB] Get:6 http://us.archive.ubuntu.com/ubuntu focal-updates InRelease [114 kB] Get:7 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal-updates/main amd64 Packages [797 kB] Get:8 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal-updates/restricted amd64 Packages [144 kB] Get:9 http://us-east-2.ec2.archive.ubuntu.com/ubuntu focal-updates/universe amd64 Packages [737 kB] Fetched 2,115 kB in 1s (2,342 kB/s)                                          + Reading package lists\...
+Done Building dependency tree     + Reading state information\...
+Done 26 packages can be upgraded.
+Run 'apt list --upgradable' to see them.
+ubuntu@ip-172-31-21-230:~$ apt list --upgradable  Listing\...
+Done apt-utils/focal-updates 2.0.4 amd64 [upgradable from: 2.0.2ubuntu0.2] apt/focal-updates 2.0.4 amd64 [upgradable from: 2.0.2ubuntu0.2] base-files/focal-updates 11ubuntu5.3 amd64 [upgradable from: 11ubuntu5.2] grub-common/focal-updates 2.04-1ubuntu26.8 amd64 [upgradable from: 2.04-1ubuntu26.7] grub-pc-bin/focal-updates 2.04-1ubuntu26.8 amd64 [upgradable from: 2.04-1ubuntu26.7] grub-pc/focal-updates 2.04-1ubuntu26.8 amd64 [upgradable from: 2.04-1ubuntu26.7] grub2-common/focal-updates 2.04-1ubuntu26.8 amd64 [upgradable from: 2.04-1ubuntu26.7] libapt-pkg6.0/focal-updates 2.0.4 amd64 [upgradable from: 2.0.2ubuntu0.2] libc-bin/focal-updates 2.31-0ubuntu9.2 amd64 [upgradable from: 2.31-0ubuntu9.1] libc-dev-bin/focal-updates 2.31-0ubuntu9.2 amd64 [upgradable from: 2.31-0ubuntu9.1] libc6-dev/focal-updates 2.31-0ubuntu9.2 amd64 [upgradable from: 2.31-0ubuntu9.1] libc6/focal-updates 2.31-0ubuntu9.2 amd64 [upgradable from: 2.31-0ubuntu9.1] libglib2.0-0/focal-updates 2.64.6-1~ubuntu20.04.1 amd64 [upgradable from: 2.64.3-1~ubuntu20.04.1] libglib2.0-bin/focal-updates 2.64.6-1~ubuntu20.04.1 amd64 [upgradable from: 2.64.3-1~ubuntu20.04.1] libglib2.0-data/focal-updates 2.64.6-1~ubuntu20.04.1 all [upgradable from: 2.64.3-1~ubuntu20.04.1] locales/focal-updates 2.31-0ubuntu9.2 all [upgradable from: 2.31-0ubuntu9.1] lshw/focal-updates 02.18.85-0.3ubuntu2.20.04.1 amd64 [upgradable from: 02.18.85-0.3ubuntu2] motd-news-config/focal-updates 11ubuntu5.3 all [upgradable from: 11ubuntu5.2] python-apt-common/focal-updates 2.0.0ubuntu0.20.04.4 all [upgradable from: 2.0.0ubuntu0.20.04.3] python3-apt/focal-updates 2.0.0ubuntu0.20.04.4 amd64 [upgradable from: 2.0.0ubuntu0.20.04.3] python3-distupgrade/focal-updates 1:20.04.30 all [upgradable from: 1:20.04.29] python3-update-manager/focal-updates 1:20.04.10.5 all [upgradable from: 1:20.04.10.1] ubuntu-drivers-common/focal-updates 1:0.8.6.4~0.20.04.1 amd64 [upgradable from: 1:0.8.4~0.20.04.3] ubuntu-release-upgrader-core/focal-updates 1:20.04.30 all [upgradable from: 1:20.04.29] update-manager-core/focal-updates 1:20.04.10.5 all [upgradable from: 1:20.04.10.1] update-notifier-common/focal-updates 3.192.30.5 all [upgradable from: 3.192.30.4] ubuntu@ip-172-31-21-230:~$
+
+ubuntu@ip-172-31-21-230:~$ sudo apt-cache -n search "kernel" busybox-syslogd - Provides syslogd and klogd using busybox kernel-wedge - udeb package builder for Debian-Installer kerneloops - kernel oops tracker linux-aws - Complete Linux kernel for Amazon Web Services (AWS) systems.
+linux-azure - Complete Linux kernel for Azure systems.
+linux-gcp - Complete Google Cloud Platform (GCP) Linux kernel and headers linux-generic - Complete Generic Linux kernel and headers linux-generic-hwe-20.04 - Complete Generic Linux kernel and headers linux-gke - Complete Google Container Engine (GKE) Linux kernel and headers linux-image-extra-virtual - Extra drivers for Virtual Linux kernel image linux-image-extra-virtual-hwe-20.04 - Extra drivers for Virtual Linux kernel image linux-kvm - Complete Linux kernel for virtual systems.
+linux-libc-dev - Linux Kernel Headers for development linux-libc-dev-arm64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-armhf-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-ppc64el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-s390x-cross - Linux Kernel Headers for development (for cross-compiling) linux-lowlatency - Complete lowlatency Linux kernel linux-lowlatency-hwe-20.04 - Complete lowlatency Linux kernel linux-modules-extra-aws - Extra modules for Amazon Web Services (AWS) systems.
+linux-modules-extra-azure - Linux kernel extra modules for Azure systems.
+linux-modules-extra-gcp - Google Cloud Platform (GCP) Linux kernel extra modules linux-modules-extra-gke - Google Container Engine (GKE) Linux kernel extra modules linux-oracle - Complete Linux kernel for Oracle systems.
+linux-virtual - Minimal Generic Linux kernel and headers linux-virtual-hwe-20.04 - Minimal Generic Linux kernel and headers nfs-kernel-server - support for NFS kernel server rsyslog - reliable system and kernel logging daemon bcmwl-kernel-source - Broadcom 802.11 Linux STA wireless driver source nvidia-340 - NVIDIA binary driver - version 340.108 nvidia-dkms-390 - NVIDIA DKMS package nvidia-kernel-common-390 - Shared files used with the kernel module nvidia-kernel-common-418 - Transitional package for nvidia-kernel-common-430 nvidia-kernel-common-430 - Transitional package for nvidia-kernel-common-440 nvidia-kernel-source-390 - NVIDIA kernel source package nvidia-kernel-source-418 - Transitional package for nvidia-kernel-source-430 nvidia-kernel-source-430 - Transitional package for nvidia-kernel-source-440 debian-kernel-handbook - reference to Debian Linux kernel packages and development debian-kernel-handbook-ja - reference to Debian Linux kernel packages and development (Japanese) golang-github-x86kernel-htmlcolor-dev - HTML syntax highlighter for Go inetutils-syslogd - system logging daemon kernel-common - common elements for generated kernel packages kernel-package - utility for building Linux kernel related Debian packages kerneloops-applet - applet for the kernel oops tracker kernelshark - Utilities for graphically analyzing function tracing in the kernel.
+kerneltop - shows Linux kernel function usage in a style like top liblinux-kernelsort-perl - Perl module for sorting Linux Kernel version strings libotbtestkernel-7.0-1 - ORFEO Toolbox library - OTBTestKernel librust-backtrace-dev - Acquire a stack trace (backtrace) at runtime - Rust source code libtrilinos-kokkos-kernels-dev - Kokkos local computational kernels - development files libtrilinos-kokkos-kernels12 - Kokkos local computational kernels - runtime files linux-libc-dev-alpha-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-amd64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-armel-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-hppa-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-i386-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-m68k-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mips-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mips64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mips64el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mips64r6-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mips64r6el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsel-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsn32-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsn32el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsn32r6-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsn32r6el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsr6-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-mipsr6el-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-powerpc-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-ppc64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-riscv64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-sh4-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-sparc64-cross - Linux Kernel Headers for development (for cross-compiling) linux-libc-dev-x32-cross - Linux Kernel Headers for development (for cross-compiling) openrazer-driver-dkms - OpenRazer peripheral drivers (DKMS) php-symfony-http-kernel - building blocks for flexible and fast HTTP-based frameworks python3-ipykernel - IPython kernel for Jupyter (Python 3) python3-spyder-kernels - Jupyter kernels for the Spyder console - Python 3 r-cran-irkernel - Native R kernel for the Jupyter notebook socklog-run - system and kernel logging services spring-maps-kernelpanic - Additional maps for Spring for the Kernel Panic mod spring-mods-kernelpanic - The Kernel Panic game for the Spring engine, a fast-paced RTS with no economy syslog-ng-core - Enhanced system logging daemon (core) vboot-kernel-utils - Chrome OS verified boot utils required to sign kernels xenomai-kernel-source - Linux kernel patches for Xenomai linux-gkeop - Complete GKEOP Linux kernel and headers linux-modules-extra-gkeop - Additional modules for the GKEOP kernel linux-oem-20.04b - Complete OEM Linux kernel and headers linux-modules-nvidia-418-server-generic - Extra drivers for nvidia-418-server for generic linux-modules-nvidia-418-server-generic-hwe-20.04 - Extra drivers for nvidia-418-server for generic-hwe-20.04 linux-modules-nvidia-418-server-generic-hwe-20.04-edge - Extra drivers for nvidia-418-server for generic-hwe-20.04-edge linux-modules-nvidia-418-server-lowlatency - Extra drivers for nvidia-418-server for lowlatency linux-modules-nvidia-418-server-lowlatency-hwe-20.04 - Extra drivers for nvidia-418-server for the lowlatency flavour linux-modules-nvidia-418-server-lowlatency-hwe-20.04-edge - Extra drivers for nvidia-418-server for the lowlatency flavour linux-modules-nvidia-450-aws - Extra drivers for nvidia-450 for aws linux-modules-nvidia-450-azure - Extra drivers for nvidia-450 for azure linux-modules-nvidia-450-gcp - Extra drivers for nvidia-450 for gcp linux-modules-nvidia-450-generic - Extra drivers for nvidia-450 for generic linux-modules-nvidia-450-generic-hwe-20.04 - Extra drivers for nvidia-450 for generic-hwe-20.04 linux-modules-nvidia-450-generic-hwe-20.04-edge - Extra drivers for nvidia-450 for generic-hwe-20.04-edge linux-modules-nvidia-450-lowlatency - Extra drivers for nvidia-450 for lowlatency linux-modules-nvidia-450-lowlatency-hwe-20.04 - Extra drivers for nvidia-450 for lowlatency-hwe-20.04 linux-modules-nvidia-450-lowlatency-hwe-20.04-edge - Extra drivers for nvidia-450 for lowlatency-hwe-20.04-edge linux-modules-nvidia-450-oem-20.04 - Extra drivers for nvidia-450 for the OEM flavour linux-modules-nvidia-450-oem-20.04b - Extra drivers for nvidia-450 for oem-20.04b linux-modules-nvidia-450-oracle - Extra drivers for nvidia-450 for oracle linux-modules-nvidia-450-server-generic - Extra drivers for nvidia-450-server for generic linux-modules-nvidia-450-server-generic-hwe-20.04 - Extra drivers for nvidia-450-server for generic-hwe-20.04 linux-modules-nvidia-450-server-generic-hwe-20.04-edge - Extra drivers for nvidia-450-server for generic-hwe-20.04-edge linux-modules-nvidia-450-server-lowlatency - Extra drivers for nvidia-450-server for lowlatency linux-modules-nvidia-450-server-lowlatency-hwe-20.04 - Extra drivers for nvidia-450-server for the lowlatency flavour linux-modules-nvidia-450-server-lowlatency-hwe-20.04-edge - Extra drivers for nvidia-450-server for the lowlatency flavour linux-modules-nvidia-460-aws - Extra drivers for nvidia-460 for aws linux-modules-nvidia-460-azure - Extra drivers for nvidia-460 for azure linux-modules-nvidia-460-gcp - Extra drivers for nvidia-460 for gcp linux-modules-nvidia-460-generic - Extra drivers for nvidia-460 for generic linux-modules-nvidia-460-generic-hwe-20.04 - Extra drivers for nvidia-460 for generic-hwe-20.04 linux-modules-nvidia-460-generic-hwe-20.04-edge - Extra drivers for nvidia-460 for generic-hwe-20.04-edge linux-modules-nvidia-460-lowlatency - Extra drivers for nvidia-460 for lowlatency linux-modules-nvidia-460-lowlatency-hwe-20.04 - Extra drivers for nvidia-460 for lowlatency-hwe-20.04 linux-modules-nvidia-460-lowlatency-hwe-20.04-edge - Extra drivers for nvidia-460 for lowlatency-hwe-20.04-edge linux-modules-nvidia-460-oem-20.04 - Extra drivers for nvidia-460 for the OEM flavour linux-modules-nvidia-460-oem-20.04b - Extra drivers for nvidia-460 for oem-20.04b linux-modules-nvidia-460-oracle - Extra drivers for nvidia-460 for oracle nvidia-dkms-435 - Transitional package for nvidia-dkms-455 nvidia-dkms-440 - Transitional package for nvidia-dkms-450 nvidia-dkms-450 - NVIDIA DKMS package nvidia-dkms-450-server - NVIDIA DKMS package nvidia-dkms-460 - NVIDIA DKMS package nvidia-kernel-common-435 - Transitional package for nvidia-kernel-common-455 nvidia-kernel-common-440 - Transitional package for nvidia-kernel-common-450 nvidia-kernel-common-450 - Shared files used with the kernel module nvidia-kernel-common-450-server - Shared files used with the kernel module nvidia-kernel-common-455 - Transitional package for nvidia-kernel-common-460 nvidia-kernel-common-460 - Shared files used with the kernel module nvidia-kernel-source-435 - Transitional package for nvidia-kernel-source-455 nvidia-kernel-source-440 - Transitional package for nvidia-kernel-source-450 nvidia-kernel-source-450 - NVIDIA kernel source package nvidia-kernel-source-450-server - NVIDIA kernel source package nvidia-kernel-source-455 - Transitional package for nvidia-kernel-source-460 nvidia-kernel-source-460 - NVIDIA kernel source package linux-oem-20.04-edge - Complete OEM Linux kernel and headers nvidia-dkms-418-server - NVIDIA DKMS package nvidia-kernel-common-418-server - Shared files used with the kernel module nvidia-kernel-common-440-server - Transitional package for nvidia-kernel-common-450-server nvidia-kernel-source-418-server - NVIDIA kernel source package nvidia-kernel-source-440-server - Transitional package for nvidia-kernel-source-450-server ubuntu@ip-172-31-21-230:~$
+
+ubuntu@ip-172-31-21-230:~$ dpkg --get-selections "_linux_" binutils-x86-64-linux-gnu			install console-setup-linux				install libselinux1:amd64				install linux-aws					install linux-aws-headers-5.4.0-1029			install linux-aws-headers-5.4.0-1035			install linux-aws-headers-5.4.0-1037			install linux-base					install linux-headers-5.4.0-1029-aws			install linux-headers-5.4.0-1035-aws			install linux-headers-5.4.0-1037-aws			install linux-headers-aws				install linux-image-5.4.0-1029-aws			install linux-image-5.4.0-1030-aws			deinstall linux-image-5.4.0-1032-aws			deinstall linux-image-5.4.0-1034-aws			deinstall linux-image-5.4.0-1035-aws			install linux-image-5.4.0-1037-aws			install linux-image-aws					install linux-libc-dev:amd64				install linux-modules-5.4.0-1029-aws			install linux-modules-5.4.0-1030-aws			deinstall linux-modules-5.4.0-1032-aws			deinstall linux-modules-5.4.0-1034-aws			deinstall linux-modules-5.4.0-1035-aws			install linux-modules-5.4.0-1037-aws			install util-linux					install ubuntu@ip-172-31-21-230:~$  ```
+
+== Exercise 10.2: Using APT to Find Information About a Package
+
+Using apt-cache and apt (and not dpkg ), find: 1.
+All packages that contain a reference to bash in their name or description.
+2.
+Installed and available bash packages.
+3.
+The package information for bash.
+4.
+The dependencies for the bash package.
+Try the commands you used above both as root and as a regular user.
+Do you notice any difference?
+
+``` ubuntu@ip-172-31-21-230:~$ apt search "bash" Sorting\...
+Done Full Text Search\...
+Done abs-guide/focal,focal 10-3 all   The Advanced Bash-Scripting Guide
+
+acr/focal,focal 1.7.2-1 all   autoconf like tool
+
+android-androresolvd/focal,focal 1.3-1build1 amd64   Daemon to transfer Android DNS property to resolv.conf
+
+apparix/focal,focal 11-062-1 amd64   console-based bookmark tool for fast file system navigation
+
+awesome-extra/focal,focal 2019021001 all   additional modules for awesome
+
+azure-cli/focal-updates,focal-updates 2.0.81+ds-4ubuntu0.2 all   Azure Command-Line Interface (CLI)
+
+backup-manager/focal,focal 0.7.14-1.1 all   command-line backup tool
+
+bash/focal-updates,now 5.0-6ubuntu1.1 amd64 [installed]   GNU Bourne Again SHell
+
+bash-builtins/focal-updates,focal-updates 5.0-6ubuntu1.1 amd64   Bash loadable builtins - headers & examples
+
+bash-completion/focal,now 1:2.10-1ubuntu1 all [installed,automatic]   programmable completion for the bash shell
+
+bash-doc/focal-updates 5.0-6ubuntu1.1 all   Documentation and examples for the GNU Bourne Again SHell
+
+bash-static/focal-updates,focal-updates 5.0-6ubuntu1.1 amd64   GNU Bourne Again SHell (static version)
+
+bats/focal,focal 1.1.0+git104-g1c83a1b-1 all   bash automated testing system
+
+bd/focal,focal 1.02-5 all   quickly go back to a specific parent directory in bash
+
+biabam/focal,focal 0.9.7-7.2 all   bash attachment mailer
+
+bleachbit/focal,focal 3.9.0-1 all   delete unnecessary files from the system
+
+checksec/focal,focal 2.1.0+git20191113.bf85698-2 all   Bash script to test executable properties
+
+command-not-found/focal-updates,now 20.04.4 all [installed,automatic]   Suggest installation of packages in interactive bash sessions
+
+cronic/focal,focal 3-2 all   Bash script for wrapping cron jobs to prevent excess email sending
+
+csh/focal,focal 20110502-5 amd64   Shell with C-like syntax
+
+dash/focal,now 0.5.10.2-6 amd64 [installed]   POSIX-compliant shell
+
+ddd/focal,focal 1:3.3.12-5.2build1 amd64   Data Display Debugger, a graphical debugger frontend
+
+ddgr/focal,focal 1.7+git20190928.bccdc92-2 all   DuckDuckGo from the terminal
+
+dehydrated/focal,focal 0.6.5-1 all   ACME client implemented in Bash
+
+devscripts/focal 2.20.2ubuntu2 amd64   scripts to make the life of a Debian Package maintainer easier
+
+direnv/focal,focal 2.21.2-1 amd64   Utility to set directory specific environment variables
+
+elpa-yasnippet-snippets/focal,focal 0.20-1 all   Andrea Crotti's official YASnippet snippets
+
+env2/focal,focal 1.1.0-4 all   convert environment variables between scripting languages
+
+extrace/focal,focal 0.7-1 amd64   trace exec() calls system-wide
+
+fenrir/focal,focal 1.9.5-2 all   Userland console (TTY) screen reader written in python
+
+firehol/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful iptables stateful firewall (program)
+
+firehol-common/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful traffic suite (common library)
+
+firehol-doc/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful iptables stateful firewall (docs)
+
+firehol-tools/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful traffic suite (extra tools)
+
+firehol-tools-doc/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful traffic suite (extra tools docs)
+
+fireqos/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful traffic shaping tool (program)
+
+fireqos-doc/focal,focal 3.1.5+ds-1ubuntu1 all   easy to use but powerful traffic shaping tool (docs)
+
+fonts-powerline/focal,focal 2.7-3 all   prompt and statusline utility (symbols font)
+
+funcoeszz/focal,focal 18.3-1 all   script with 170+ useful mini applications
+
+fzf/focal,focal 0.20.0-1 amd64   general-purpose command-line fuzzy finder
+
+gitlab-shell/focal,focal 10.3.0+debian-3.1 amd64   handles git commands for GitLab
+
+global/focal,focal 6.6.4-1 amd64   Source code search and browse tools
+
+golang-github-bmatcuk-doublestar-dev/focal,focal 1.2.1-1 all   support for double star matches in golang's path.Match and filepath.Glob
+
+golang-github-posener-complete-dev/focal,focal 1.2.3-1 all   bash completion written in go
+
+googler/focal,focal 4.0-1 all   Power tool to Google (Web & News) and Google Site Search from the terminal
+
+gradle-completion/focal,focal 1.3.1-1 all   Bash and Zsh completion support for Gradle
+
+grub-coreboot/focal-updates,focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Coreboot version)
+
+grub-coreboot-bin/focal-updates,focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Coreboot modules)
+
+grub-efi-amd64/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (EFI-AMD64 version)
+
+grub-efi-amd64-bin/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (EFI-AMD64 modules)
+
+grub-efi-amd64-signed/focal-updates 1.142.10+2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (EFI-AMD64 version, signed)
+
+grub-efi-ia32/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (EFI-IA32 version)
+
+grub-efi-ia32-bin/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (EFI-IA32 modules)
+
+grub-ieee1275/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Open Firmware version)
+
+grub-ieee1275-bin/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Open Firmware modules)
+
+grub-pc/focal-updates,now 2.04-1ubuntu26.8 amd64 [installed,automatic]   GRand Unified Bootloader, version 2 (PC/BIOS version)
+
+grub-pc-bin/focal-updates,now 2.04-1ubuntu26.8 amd64 [installed,automatic]   GRand Unified Bootloader, version 2 (PC/BIOS modules)
+
+grub-xen/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Xen version)
+
+grub-xen-bin/focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Xen modules)
+
+grub-xen-host/focal-updates,focal-updates 2.04-1ubuntu26.8 amd64   GRand Unified Bootloader, version 2 (Xen host version)
+
+guilt/focal,focal 0.36-2 all   quilt for git;
+similar to Mercurial queues
+
+hexec/focal,focal 0.2.1-4 amd64   Command line tool to hook into exec calls
+
+hub/focal,focal 2.7.0~ds1-1 amd64   make git easier with GitHub
+
+i3lock-fancy/focal,focal 0.0~git20160228.0.0fcb933-3 amd64   i3lock custom wrapper script
+
+imgp/focal,focal 2.7-1 all   Superfast batch image resizer and rotator
+
+jed/focal,focal 1:0.99.19-7build1 amd64   editor for programmers (textmode version)
+
+jedit/focal,focal 5.5.0+dfsg-1 all   Plugin-based editor for programmers
+
+kdesdk-scripts/focal,focal 4:19.12.3-0ubuntu1 all   scripts and data files for development
+
+keychain/focal,focal 2.8.5-1 all   key manager for OpenSSH
+
+kubetail/focal,focal 1.6.5-2 all   Aggregate logs from multiple Kubernetes pods into one stream
+
+ledit/focal,focal 2.04-4build1 all   line editor for interactive programs
+
+libbash/focal,focal 0.9.11-2 all   bash dynamic-like shared libraries
+
+libbash-doc/focal,focal 0.9.11-2 all   bash dynamic-like shared libraries - documentation
+
+libdbix-profile-perl/focal,focal 1.0-5 all   DBI query profiler
+
+libenv-ps1-perl/focal,focal 0.06-2 all   prompt string formatter
+
+libgetopt-complete-perl/focal,focal 0.26-2 all   programmable shell completion for Perl apps
+
+libghc-highlighting-kate-dev/focal,focal 0.6.4-5build1 amd64   syntax highlighting library based on Kate syntax descriptions
+
+libghc-highlighting-kate-doc/focal,focal 0.6.4-5build1 all   library documentation for highlighting-kate;
+documentation
+
+libghc-highlighting-kate-prof/focal,focal 0.6.4-5build1 amd64   highlighting-kate library with profiling enabled;
+profiling libraries
+
+libhoneysql-clojure/focal,focal 0.8.2-2 all   library for mapping Clojure data structures to SQL
+
+libjline2-java/focal,focal 2.14.6-3 all   console input handling in Java
+
+libjs-prettify/focal,focal 2015.12.04+dfsg-1.1 all   syntax highlighting of source code snippets in an html page
+
+libjs-xterm/focal,focal 3.8.1-3 all   terminal front-end component for the browser - browser library
+
+libledit-ocaml-dev/focal,focal 2.04-4build1 amd64   OCaml line editor library
+
+libshell-posix-select-perl/focal,focal 0.08-1 all   POSIX Shell's "select" loop for Perl
+
+libt3highlight-dev/focal,focal 0.5.0-1 amd64   Development files for libt3highlight
+
+libt3highlight2/focal,focal 0.5.0-1 amd64   Syntax highlighting library
+
+licensecheck/focal 3.0.45-1 all   simple license checker for source files
+
+licenseutils/focal,focal 0.0.9-3build1 amd64   Put copyright and license notices at the head of source code files
+
+liquidprompt/focal,focal 1.11-3ubuntu1 all   adaptative prompt for bash & zsh
+
+lubuntu-update-notifier/focal,focal 0.1 all   Package includes a bash daemon (lubuntu-upg-notifier.sh) which
+
+megadown/focal,focal 0~20180705+git83c53dd-1.1 all   Script for downloading files from mega.nz and megacrypter
+
+mina/focal,focal 0.3.7-1 all   deployer and server automation tool
+
+mkalias/focal,focal 1.0.10-2 all   Bash alias management to facilitate alias creation
+
+mpc/focal,focal 0.33-1 amd64   command-line tool to interface MPD
+
+mussh/focal,focal 1.0-1 all   MUltihost SSH Wrapper
+
+mytharchive/focal,focal 2:31.0+fixes.20200323.9579662cdc-0ubuntu1 amd64   create and burn DVD's from MythTV - binary file
+
+nanoblogger/focal,focal 3.4.2-3 all   Small weblog engine for the command line
+
+nanoblogger-extra/focal,focal 3.4.2-2 all   Nanoblogger plugins
+
+netdata-plugins-bash/focal,focal 1.19.0-3ubuntu1 all   real-time performance monitoring (bash plugins)
+
+node-bash-match/focal,focal 1.0.2-1 all   Node module to match strings using bash
+
+node-brace-expansion/focal,focal 1.1.11-1 all   Brace expansion as known from sh/bash for Node.js
+
+node-braces/focal,focal 3.0.2-2 all   Fast, comprehensive, bash-like brace expansion implemented in JS
+
+node-expand-tilde/focal,focal 2.0.1-1 all   Bash-like tilde expansion for node.js
+
+node-extglob/focal,focal 3.0.0-2 all   Extended glob support for JavaScript
+
+node-shelljs/focal,focal 0.8.3-1 all   Portable Unix shell commands for Node.js
+
+node-xterm/focal,focal 3.8.1-3 all   terminal front-end component for the browser - NodeJS modules
+
+node-yargs/focal,focal 15.3.0-1 all   command line parser for nodejs
+
+ondir/focal,focal 0.2.3+git0.55279f03-1 amd64   Automate tasks specific to certain directories in the shell
+
+pal/focal,focal 0.4.3-8.1build4 amd64   command-line calendar program that can keep track of events
+
+pct-scanner-scripts/focal,focal 0.0.4-3ubuntu1 all   scan and create merged DjVu and PDF documents for archiving
+
+pd-lyonpotpourri/focal,focal 2.0+git20121009-3 amd64   potpourri of Pd objects for synthesizing with audio
+
+perlbrew/focal,focal 0.88-1 all   script to manage perl installations in your $HOME
+
+pidgin-plugin-pack/focal,focal 2.7.0-4 amd64   Collection of Pidgin plugins
+
+piu-piu/focal,focal 1.0-1 all   Horizontal scroller game in bash for cli.
+
+pk4/focal,focal 5 amd64   make available the Debian source package producing the specified package
+
+pluginhook/focal,focal 0~20150216.0~a320158-2.1 amd64   simple plugin system for Bash programs
+
+powerline/focal,focal 2.7-3 amd64   prompt and statusline utility
+
+powerline-doc/focal,focal 2.7-3 all   prompt and statusline utility (documentation)
+
+powerline-gitstatus/focal,focal 1.3.1-1 all   Powerline Git segment
+
+px/focal,focal 1.0.29-1 all   ps and top for human beings
+
+python-bashate-doc/focal,focal 0.6.0-4 all   bash script style guide checker - doc
+
+python3-argcomplete/focal,focal 1.8.1-1.3ubuntu1 all   bash tab completion for argparse (for Python 3)
+
+python3-bashate/focal,focal 0.6.0-4 all   bash script style guide checker - Python 3.x
+
+python3-braceexpand/focal,focal 0.1.5-1 all   Bash-style brace expansion for Python
+
+python3-dcos/focal,focal 0.2.0-4 all   DCOS Common Modules - Python 3.x
+
+python3-fire/focal,focal 0.2.1-1 all   automatically generate CLIs from absolutely any Python object
+
+python3-powerline/focal,focal 2.7-3 all   prompt and statusline utility (Python 3.x module)
+
+python3-powerline-gitstatus/focal,focal 1.3.1-1 all   Powerline Git segment for Python (3.x)
+
+redfishtool/focal,focal 1.1.0-1build1 all   redfish command-line client
+
+rlwrap/focal,focal 0.43-1build3 amd64   readline feature command line wrapper
+
+rosbash/focal,focal 1.14.7-3build2 all   Assorted shell commands for using Robot OS with bash
+
+runoverssh/focal,focal 3.0.3-1 all   POSIX-compliant shell script for running shell commands and scripts over SSH
+
+sash/focal,focal 3.8-5 amd64   Stand-alone shell
+
+screenfetch/focal,focal 3.9.1-1 all   Bash Screenshot Information Tool
+
+sendemail/focal,focal 1.56-5 all   lightweight, command line SMTP email client
+
+shove/focal,focal 0.8.2-1 all   test tool for shell scripts with TAP outputs
+
+spacefm/focal,focal 1.0.6-4 amd64   Multi-panel tabbed file manager - GTK2 version
+
+spacefm-common/focal,focal 1.0.6-4 all   Multi-panel tabbed file manager - common files
+
+spacefm-gtk3/focal,focal 1.0.6-4 amd64   Multi-panel tabbed file manager - GTK3 version
+
+stlcmd/focal,focal 1.1-1build1 amd64   Suite of commands for generating, inspecting and manipulating STL files
+
+switchsh/focal,focal 0~20070801-4 amd64   bind-mount bash as /bin/sh
+
+syslogout/focal,focal 0.3.9 all   Modularized system wide shell logout mechanism
+
+sysprofile/focal,focal 0.3.9 all   Modularized system wide shell configuration mechanism
+
+t3highlight/focal,focal 0.5.0-1 amd64   Command-line syntax highligher
+
+texlive-extra-utils/focal,focal 2019.202000218-1 all   TeX Live: TeX auxiliary programs
+
+texlive-latex-extra/focal,focal 2019.202000218-1 all   TeX Live: LaTeX additional packages
+
+thefuck/focal,focal 3.29-0.1 all   spelling corrector of console commands
+
+txt2regex/focal,focal 0.8-5 all   A Regular Expression "wizard", all written with bash2 builtins
+
+undistract-me/focal,focal 0.1.0+git20130402+3a9144bc1f-1 all   Notifies user when long-running terminal commands complete via libnotify
+
+wait-for-it/focal,focal 0.0~git20180723-1 all   script that will wait on the availability of a host and TCP port
+
+websocketd/focal,focal 0.3.1-3 amd64   Turn any program that uses STDIN/STDOUT into a WebSocket server
+
+xjed/focal,focal 1:0.99.19-7build1 amd64   editor for programmers (x11 version)
+
+xonsh/focal,focal 0.9.13+dfsg-2 all   Python-powered, cross-platform, Unix-gazing shell
+
+xonsh-doc/focal,focal 0.9.13+dfsg-2 all   Python-powered, cross-platform, Unix-gazing shell (documentation)
+
+yash/focal,focal 2.49-1 amd64   yet another shell
+
+z80asm/focal,focal 1.8-1build1 amd64   assembler for the Zilog Z80 microprocessor
+
+zshdb/focal,focal 1.1.2-1 all   debugger for Z-Shell scripts
+
+ubuntu@ip-172-31-21-230:~$ ```
+
+== Exercise 10.3: Managing Groups of Packages with APT
+
+APT provides the ability to manage groups of packages, similarly to the way yum does it, through the use of metapackages.
+These can be thought of as virtual packages, that collect related packages that must be installed and removed as a group.
+To get a list of of available metapackages: ` $ apt-cache search metapackage bacula - network backup service - metapackage bacula-client - network backup service - client metapackage bacula-server - network backup service - server metapackage cloud-utils - metapackage for installation of upstream cloud-utils source compiz - OpenGL window and compositing manager emacs - GNU Emacs editor (metapackage) ` \....
+You can then easily install them like regular single packages, as in: `+ $ sudo apt install bacula-client Reading package lists...
+Done Building dependency tree Reading state information...
+Done The following extra packages will be installed: bacula-common bacula-console bacula-fd bacula-traymonitor Suggested packages: bacula-doc kde gnome-desktop-environment The following NEW packages will be installed: bacula-client bacula-common bacula-console bacula-fd bacula-traymonitor 0 upgraded, 5 newly installed, 0 to remove and 0 not upgraded.
+Need to get 742 kB of archives.
+After this operation, 1,965 kB of additional disk space will be used.
+Do you want to continue?
+[Y/n] +` Select an uninstalled metapackage and then remove it.
+
+` ubuntu@ip-172-31-21-230:~$ apt-cache search metapackages fonts-indic - Meta package to install all Indian language fonts lsb-release - Linux Standard Base version reporting utility xorg - X.Org X Window System asciidoc-base - Minimal version of asciidoc not suitable for pdf blends-common - Debian Pure Blends common package blends-dev - Debian Pure Blends common files for developing metapackages blends-doc - Debian Pure Blends documentation libtask-kensho-all-perl - provides all Task::Kensho tasks (metapackage) med-config - Debian Med general config package python3-blends - Python 3 module for Debian Pure Blends support redmine - flexible project management web application roundcube-core - skinnable AJAX based webmail solution for IMAP servers science-config - Debian Science Project config package science-electrophysiology - Debian Science packages for Electrophysiology science-highenergy-physics - Debian Science High Energy Physics packages science-highenergy-physics-dev - Debian Science High Energy Physics development packages science-nanoscale-physics - Debian Science Nanoscale Physics packages science-nanoscale-physics-dev - Debian Science Nanoscale Physics development packages science-neuroscience-cognitive - Debian Science packages for Cognitive Neuroscience science-neuroscience-modeling - Debian Science packages for modeling of neural systems tdiary - Metapackages of tDiary mythtv - Personal video recorder application (client and server) ubuntu@ip-172-31-21-230:~$ `

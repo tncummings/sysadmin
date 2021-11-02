@@ -1,0 +1,160 @@
+:doctype: book
+
+Chapter 34 - Network Addresses
+
+= Chapter 34 - Network Addresses
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Differentiate between different types of IPv4 and IPv6 addresses.
+* Understand the role of netmasks.
+* Get, set, and change the hostname, based on the system you are using.
+
+== IP Addresses
+
+IP addresses are used to uniquely identify nodes across the internet.
+They are registered through ISPs (Internet Service Providers).
+
+The IP address is the number that identifies your system on the network.
+It comes in two varieties.
+
+*_IPv4_*: IPv4 is a 32-bit address, composed of 4 octets (an octet is just 8 bits, or a byte).
+Example: 148.114.252.10
+
+*_IPv6_*: IPv6 is a 128-bit address, composed of 8 16-bit octet pairs.Example: 2003:0db5:6123:0000:1f4f:0000:5529:fe23
+
+In either case, a set of reserved addresses is also included.
+We will focus somewhat more on IPv4, as it is still what is most commonly in use.
+image:../../_resources/820bc20ae5874aa7aa931dfefa8020f2.png[e64a67b599ee941ff642722a40ca885f.png]
+
+== IPv4 Address Types
+
+*_Unicast_*: An address associated with a specific host.
+It might be something like 140.211.169.4 or 64.254.248.193.
+
+*_Network_*: An address whose host portion is set to all binary zeroes.
+Ex.
+192.168.1.0.
+(the host portion can be the last 1-3 octets as discussed later;
+here it is just the last octet).
+
+*_Broadcast_*: An address to which each member of a particular network will listen.
+It will have the host portion set to all 1 bits, such as in 172.16.255.255 or 148.114.255.255 or 192.168.1.255.
+(the host portion is the last two octets in the first two cases, just the last one in the third case).
+
+*_Multicast_*: An address to which appropriately configured nodes will listen.
+The address 224.0.0.2 is an example of a multicast address.
+Only nodes specifically configured to pay attention to a specific multicast address will interpret packets for that multicast group.
+
+== Reserved Addresses
+
+Certain addresses and address ranges are reserved for special purposes.
+
+=== Examples of Reserved Addresses
+
+*_127.x.x.x_*: Reserved for the loopback (local system) interface, where 0 \<= x \<= 254.
+Generally, 127.0.0.1.
+
+*_0.0.0.0_*: Used by systems that do not yet know their own address.
+Protocols like DHCP and BOOTP use this address when attempting to communicate with a server.
+
+*_255.255.255.255_*: Generic broadcast private address, reserved for internal use.
+These addresses are never assigned or registered to anyone.
+They are generally not routable.
+
+=== Other reserved addresses
+
+Other examples of reserved address ranges include:
+
+* *_10.0.0.0 - 10.255.255.255_*
+* *_172.16.0.0 - 172.31.255.255_*
+* *_192.168.0.0 - 192.168.255.255_*
+* etc.
+
+Each of these has a purpose.
+For example, the familiar address range, 192.168.x.x is used only for local communications within a private network.
+
+You can see a long list of reserved addresses for both IPv4 and IPv6 on the https://en.wikipedia.org/wiki/Reserved_IP_addresses[Reserved IP addresses Wikipedia page].
+
+== IPv6 Address Types
+
+*_Unicast_*: A packet is delivered to one interface.
+
+* Link-local: Auto-configured for every interface to have one.
+Non-routable.
+* Global: Dynamically or manually assigned.
+Routable.
+* Reserved for documentation.
+
+*_Multicast_*: A packet is delivered to multiple interfaces.
+
+*_Anycast_*: A packet is delivered to the nearest of multiple interfaces (in terms of routing distance).
+
+*_IPv4-mapped_*: An IPv4 address mapped to IPv6.
+For example, ::FFFF:a.b.c.d/96
+
+In addition, IPv6 has some special types of addresses such as loopback, which is assigned to the lo interface, as ::1/128.
+
+== IPv4 Address Classes
+
+Historically, IP addresses are based on defined classes.
+Classes A, B, and C are used to distinguish a network portion of the address from a host portion of the address.
+This is used for routing purposes.
+
+Class A addresses use 8 bits for the network portion of the address and 24 bits for the host portion of the address.
+Class B addresses use 16 and 16 bits respectively, while Class C addresses use 24 bits for the network portion and 8 bits for the host portion.
+
+Class D addresses are used for multicasting.
+Class E addresses are currently not used.
+image:../../_resources/d139f8e87c5547d19fa0def53b98c8d1.png[b26d4b6d7c206cfacbdc03bbb5399533.png]
+
+== Netmasks
+
+netmask is used to determine how much of the address is used for the network portion and how much for the host portion as we have seen.
+It is also used to determine network and broadcast addresses.
+image:../../_resources/dda3af06005944db90e2237330920446.png[04fef3d24f2aacc125cb8331d60cdcce.png]
+
+The network address is obtained by anding (logical and - &) the IP address with the netmask.
+We are interested in the network addresses because they define a local network which consists of a collection of nodes connected via the same media and sharing the same network address.
+All nodes on the same network can directly see each other.
+
+Example: ` 172.16.2.17 ip address &255.255.0.0 netmask ----------------- 172.16.0.0 network address `
+
+== Getting and Setting the Hostname
+
+The hostname is simply a label to distinguish a networked device from other nodes.
+Historically, this has also been called a nodename.
+
+For DNS purposes, hostnames are appended with a period (dot) and a domain name, so that a machine with a hostname of antje could have a fully qualified domain name (FQDN) of antje.linuxfoundation.org.
+
+The hostname is generally specified at installation time, and can be modified at any time later.
+
+At any given time ascertaining the current hostname is as simple as:
+
+` $ hostname wally `
+
+Changing hostname requires root privilege:
+
+` $ sudo hostname lumpy lumpy `
+
+To do this persistently so changes survive a reboot use hostnamectl, part of the systemd infrastructure:
+
+`$ sudo hostnamectl set-hostname lumpy`
+
+Historically, making persistent changes involved changing configuration files in the etc directory tree.
+On Red Hat-based systems this was `/etc/sysconfig/network`, on Debian-based systems this was `/etc/hostname` and on SUSE-based systems it was `/etc/HOSTNAME`.
+However, one should use `hostnamectl` on modern systems:
+
+` $ hostnamectl    Static hostname: c8          Icon name: computer-desktop            Chassis: desktop         Machine ID: ce0c82382a8a4c80bbd6931a917a2f1c            Boot ID: 94207b3fbd9b4891b9a94e21762a47cb   Operating System: Red Hat Enterprise Linux 8.2 (Ootpa) \            dracut-049-70.git20200228.el8 (Initramfs)             Kernel: Linux 5.11.6       Architecture: x86-64 `
+
+To see a usage message:
+
+``` $ hostnamectl --help hostnamectl [OPTIONS\...] COMMAND \...
+
+Query or change system hostname
+
+-h --help              Show this help    --version           Show package version    --no-ask-password   Do not prompt for password -H --host=[USER@]HOST  Operate on remote host -M --machine=CONTAINER Operate on local container    --transient         Only set transient hostname    --static            Only set static hostname    --pretty            Only set pretty hostname
+
+Commands:   status               Show current hostname settings   set-hostname NAME    Set system hostname   set-icon-name NAME   Set icon name for host   set-chassis NAME     Set chassis type for host   set-deployment NAME  Set deployment environment for host   set-location NAME    Set location for host ```

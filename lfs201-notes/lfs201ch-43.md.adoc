@@ -1,0 +1,152 @@
+:doctype: book
+
+Chapter 43 - Basic Troubleshooting
+
+= Chapter 43 - Basic Troubleshooting
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Troubleshoot your system, following a number of steps iteratively until solutions are found.
+* Check your network and file integrity for possible issues.
+* Resolve problems when there is system boot failure.
+* Repair and recover corrupted filesystems.
+* Understand how rescue and recovery media can be used for troubleshooting.
+
+== Troubleshooting Levels
+
+*_Beginner_*: This level can be taught very quickly.
+
+*_Experienced_*: This level comes after a few years of practice.
+
+*_Wizard_*: Some people think you have to be born this way, but that is nonsense;
+all skills can be learned.
+Every organization should have at least one person at this level of expertise to use as the go-to person.
+
+Even the best administered systems will develop problems.
+Troubleshooting can isolate whether the problems arise from software or hardware, as well as whether they are local to the system, or come from within the local network or the Internet.
+
+Troubleshooting properly requires judgment and experience, and while it will always be somewhat of an art form, following good methodical procedures can really help isolate the sources of problems in a reproducible fashion.
+
+== Basic Troubleshooting Techniques
+
+Troubleshooting involves taking a number of steps which need to be repeated iteratively until solutions are found.
+A basic recipe might be:
+
+* Characterize the problem
+* Reproduce the problem
+* Always try the easy things first
+* Eliminate possible causes one at a time
+* Change only one thing at a time;
+if that doesn't fix the problem, change it back
+* Check the system logs (`/var/log/messages`, `/var/log/secure`, etc.) for further information.
+
+Sometimes, the ruling philosophy and methodology requires following a very established procedure;
+making leaps based on intuition is discouraged.
+The motivation for using a checklist and uniform procedure is to avoid reliance on a wizard, to ensure any system administrator will be able to eventually solve a problem if they adhere to well-known procedures.
+Otherwise, if the wizard leaves the organization, there is no one skilled enough to solve tough problems.
+
+If, on the other hand, you elect to respect your intuition and check hunches, you should make sure you can get sufficient data quickly enough to decide whether or not to continue or abandon an intuitive path, based on whether it looks like it will be productive.
+
+While ignoring intuition can sometimes make solving a problem take longer, the troubleshooter's previous track record is the critical benchmark for evaluating whether to invest resources this way.
+In other words, useful intuition is not magic, it is distilled experience.
+
+== Things to Check: Networking
+
+Network problems can be caused either by software or hardware, and can be as simple as is the device driver loaded, or is the network cable connected.
+If the network is up and running but performance is terrible, it really falls under the banner of performance tuning, not troubleshooting.
+The problems may be external to the machine, or require adjustment of the various networking parameters including buffer sizes, etc.
+
+=== What to check when there are networking issues
+
+*_IP Configuration_*: Use `ifconfig` or `ip` to see if the interface is up, and if so, if it is configured.
+
+*_Network Driver_*: If the interface can't be brought up, maybe the correct device driver for the network card(s) is not loaded.
+Check with `lsmod` if the network driver is loaded as a kernel module, or by examining relevant pseudo-files in `/proc` and `/sys`, such as `/proc/interrupts` or `/sys/class/net`.
+
+*_Connectivity_*: Use `ping` to see if the network is visible, checking for response time and packet loss.
+`traceroute` can follow packets through the network, while `mtr` can do this in a continuous fashion.
+Use of these utilities can tell you if the problem is local or on the Internet.
+
+*_Default Gateway and Routing Configuration_*: Run `route -n` and see if the routing table makes sense.
+
+*_Hostname Resolution_*: Run `dig` or `host` on a URL and see if DNS is working properly.
+
+== Things to Check: File Integrity
+
+There are a number of ways to check for *corrupt configuration files and binaries*.
+
+For RPM-based systems use:
+
+`$ rpm -V some_package`
+
+to check a single package, and:
+
+`$ rpm -Va`
+
+checks all packages.
+
+In Debian, the only way to do integrity checking is with debsums.
+Running debsums somepackage will check the checksums on the files in that package.
+However, not all packages maintain checksums so this might be less than useful:
+
+`$ debsums options some_package`
+
+aide does intrusion detection and is another way to check for changes in files:
+
+`$ aide --check`
+
+will run a scan on your files and compare them to the last scan.
+
+== Boot Process Failures
+
+If the system fails to boot properly or fully, being familiar with what happens at each stage is important in identifying particular sources of problems.
+
+*_No boot loader screen_*: Check for GRUB misconfiguration, or a corrupt boot sector.
+You may have to re-install the boot loader.
+
+*_Kernel fails to load_*: If the kernel panics during the boot process, it is most likely a misconfigured or corrupt kernel, or incorrect kernel boot parameters in the GRUB configuration file.
+If the kernel has booted successfully in the past, either it has corrupted, or bad parameters were supplied.
+Depending on which, you can re-install the kernel, or enter into the interactive GRUB menu at boot and use very minimal command line parameters and try to fix that way.
+Or you can try booting into a rescue image.
+
+*_Kernel loads, but fails to mount the root filesystem_*.
+The main causes here are: - Misconfigured GRUB configuration file - Misconfigured /etc/fstab - No support for the root filesystem type built into the kernel or in the initramfs image.
+
+*_Failure during the init process_*: There are many things that can go wrong once init starts;
+look closely at the messages that are displayed before things stop.
+If things were working before, with a different kernel, this is a big clue.
+Look out for corrupted filesystems, errors in startup scripts, etc.
+Try booting into a lower runlevel, such as 3 (no graphics) or 1 (single user mode).
+
+== Filesystem Corruption and Recovery
+
+If during the boot process, one or more filesystems fail to mount, `fsck` may be used to attempt repair.
+However, before doing that one should check that `/etc/fstab` has not been misconfigured or corrupted.
+Note once again that you could have a problem with a filesystem type the kernel you are running does not understand.
+
+If the root filesystem has been mounted you can examine this file, but / may have been mounted as read-only, so to edit the file and fix it, you can run:
+
+`$ sudo mount -o remount,rw /`
+
+to remount it with write permission.
+
+If `/etc/fstab`, seems to be correct, you can move to fsck.
+First, you should try:
+
+`$ sudo mount -a`
+
+to try and mount all filesystems.
+If this does not succeed completely, you can try to manually mount the ones with problems.
+You should first run fsck to just examine;
+afterwards, you can run it again to have it try and fix any errors found.
+
+== Using the Virtual Consoles
+
+*By default, Linux defines twelve virtual consoles (also called virtual terminals) to allow local access to the system.* The first six are usually login text consoles.
+Console 1 is used by most distributions as the system console.
+The seventh is usually the graphical console, if you have one;
+however, some distributions (including RHEL) use console 1.
+
+You can use `Ctrl-Alt-FX` (where X is the number of the console) to go between the consoles, for example `Ctrl-Alt-F5` goes to console 5.

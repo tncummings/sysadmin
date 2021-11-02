@@ -1,0 +1,441 @@
+:doctype: book
+
+Chapter 35 - Network Devices and Configuration
+
+= Chapter 35 - Network Devices and Configuration
+
+== Chapter 35 Introduction
+
+Network devices such as Ethernet and wireless connections require careful configuration, especially when there are multiple devices of the same type.
+The question of consistent and persistent device naming can become tricky in such circumstances.
+Recently, the adoption of new schemes has made the naming more predictable.
+A number of important utilities are used to bring devices up and down, configure their properties, establish routes, etc., and system administrators must become adept at their use.
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Identify network devices and understand how the operating system names them and binds them to specific duties.
+* Use the ip utility to display and control devices, routing, policy-based routing, and tunnelling.
+* Use the older ifconfig to configure, control, and query network interface parameters from either the command line or from system configuration scripts.
+* Understand the Predictable Network Interface Device Names scheme.
+* Know the main network configuration files in /etc.
+* Use Network Manager (nmtui and nmcli) to configure network interfaces in a distribution-independent manner.
+* Know how to set default routes and static routes.
+* Configure name resolution as well as run diagnostic utilities.
+
+== Network Devices
+
+Unlike block and character devices, network devices are not associated with special device files, also known as device nodes.
+Rather than having associated entries in the `/dev` directory, they are known by their names.
+
+These names usually consist of a type identifier followed by a number as in:
+
+* eth0, eth1, eno1, eno2, etc., for ethernet devices.
+* wlan0, wlan1, wlan2, wlp3s0, wlp3s2, etc., for wireless devices.
+* br0, br1, br2, etc., for bridge interfaces.
+* vmnet0, vmnet1, vmnet2, etc., for virtual devices for communicating with virtual clients.
+
+Historically, multiple virtual devices could be associated with single physical devices;
+these were named with colons and numbers;
+so, eth0:0 would be the first alias on the eth0 device.
+This was done to support multiple IP addresses on one network card.
+However, with the use of ip instead of ifconfig, this method is deprecated and we will not pursue it.
+This is not compatible with IPv6.
+
+The historical device naming conventions encountered difficulties, particularly when multiple interfaces of the same type were present.
+For example, suppose you have two network cards;
+one would be named eth0 and the other eth1.
+However, which physical device should be associated with each name?
+
+The simplest method would be to have the first device found be eth0, the second eth1, etc.
+Unfortunately, probing for devices is not deterministic for modern systems, and devices may be located or plugged in an unpredictable order.
+Thus, you might wind up with the Internet interface swapped with the local interface.
+Even if hardware does not change, the order in which interfaces are located has been known to vary with kernel version and configuration.
+
+Many system administrators have solved this problem in a simple manner, by hard-coding associations between hardware (MAC) addresses and device names in system configuration files and startup scripts.
+While this method has worked for years, it requires manual tuning and had other problems, such as when MAC addresses were not fixed;
+this can happen in both embedded and virtualized systems.
+
+== `ip`
+
+`ip` is the command line utility used to configure, control and query interface parameters and control devices, routing, etc.
+It is preferred to the venerable `ifconfig` we discuss next, as it is more versatile, as well as more efficient because it uses netlink sockets, rather than ioctl system calls.
+
+`ip` can be used for a wide variety of tasks.
+It can be used to display and control devices, routing, policy-based routing, and tunneling.
+
+The basic syntax is:
+
+` ip [ OPTIONS ] OBJECT { COMMAND | help } ip [ -force ] -batch filename `
+
+where the second form can read commands from a designated file.
+
+`ip` is a multiplex utility;
+the OBJECT argument describes what kind of action is going to be performed.
+The possible COMMANDS depend on which OBJECT is selected.
+
+You can see below some of the main values of OBJECT.
+image:../../_resources/a4b235f071ee4763b53e6c6bd44ce95b.png[ff99a49dea2799cd1af56ea72f8a96f9.png]
+
+== Using ip: Examples
+
+The `ip` utility can be used in many ways;
+a few examples are provided below.
+
+Show information for all network interfaces:
+
+`$ ip link show`
+
+Show information for the eth0 network interface, including statistics:
+
+`$ ip -s link show eth0`
+
+Set the IP address for eth0:
+
+`$ sudo ip addr add 192.168.1.7 dev eth0`
+
+Bring interface eth0 down:
+
+`$ sudo ip link set eth0 down`
+
+Set MTU to 1480 bytes for interface eth0:
+
+`$ sudo ip link set eth0 mtu 1480`
+
+Set route to network:
+
+`$ sudo ip route add 172.16.1.0/24 via 192.168.1.5` image:../../_resources/26ca0a73ac6049109ce26de5ef9dc5e2.png[baa2ae5c7da0dcaae598fe65d7c53df6.png]
+
+== `ifconfig`
+
+`ifconfig` is a system administration utility long found in UNIX-like operating systems used to configure, control, and query network interface parameters from either the command line or from system configuration scripts.
+It has been superseded by ip and some Linux distributions no longer install it by default.
+
+Display information about all interfaces:
+
+`$ ifconfig`
+
+Display information about only eth0:
+
+`$ ifconfig eth0`
+
+Set the IP address to 192.168.1.50 on interface eth0:
+
+`$ sudo ifconfig eth0 192.168.1.50`
+
+Set the netmask to 24-bit:
+
+`$ sudo ifconfig eth0 netmask 255.255.255.0`
+
+Bring interface eth0 up:
+
+`$ sudo ifconfig eth0 up`
+
+Bring interface eth0 down:
+
+`$ sudo ifconfig eth0 down`
+
+Set the MTU (Maximum Transfer Unit) to 1480 bytes for interface eth0:
+
+`$ sudo ifconfig eth0 mtu 1480` image:../../_resources/9466d9264c7146289902e7a1926f7544.png[b590d457dd22cfd0608010448e9e0e56.png]
+
+== Predictable Network Interface Device Names
+
+The Predictable Network Interface Device Names (PNIDN) is strongly correlated with the use of udev and integration with systemd.
+There are now 5 types of names that devices can be given:
+
+. Incorporating Firmware or BIOS provided index numbers for on-board devices  *_Example: eno1_*
+. List itemIncorporating Firmware or BIOS provided PCI Express hotplug slot index numbers  *_Example: ens1_*
+. Incorporating physical and/or geographical location of the hardware connection  *_Example: enp2s0_*
+. Incorporating the MAC address  *_Example: enx7837d1ea46da_*
+. Using the old classic method  *_Example: eth0_*
+
+For example, on a machine with two onboard PCI network interfaces that would have been eth0 and eth1:
+
+`$ ip link show | grep enp`
+
+` 2: enp4s2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT qlen 1000 3: enp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT qlen 1000 `
+
+`$ ifconfig | grep enp`
+
+` enp2s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST> mtu 1500 enp4s2: flags=4099<UP,BROADCAST,MULTICAST mtu> 1500 `
+
+These names are correlated with the physical locations of the hardware on the PCI system:
+
+`$ lspci | grep Ethernet`
+
+` 02:00.0 Ethernet controller: Marvell Technology Group Ltd.
+88E8056 PCI-E Gigabit Ethernet Controller (rev 12) 04:02.0 Ethernet controller: Marvell Technology Group Ltd.
+88E8001 Gigabit Ethernet Controller (rev 14) `
+
+The triplet of numbers at the beginning of each line from the lspci output is the *_bus, device (or slot), and function_* of the device;
+hence it reveals the physical location.
+
+Likewise, for a wireless device that previously would have been simply named wlan0:
+
+`$ ip link show | grep wl`
+
+`3: wlp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT qlen 1000`
+
+`$ lspci | grep Centrino`
+
+`03:00.0 Network controller: Intel Corporation Centrino Advanced-N 6205 [Taylor Peak] (rev 34)`
+
+We see the same pattern.
+It is easy to turn off the new scheme and go back to the classic names.
+We will leave that as a research project.
+In what follows, we will mostly follow the classic names for definiteness and simplicity.
+
+== NIC Configuration Files
+
+Each distribution has its own set of files and/or directories, and they may be slightly different, depending on your distribution version.
+
+*_Red Hat_*: - `/etc/sysconfig/network` - `/etc/sysconfig/network-scripts/ifcfg-ethX` - `/etc/sysconfig/network-scripts/ifcfg-ethX:Y` - `/etc/sysconfig/network-scripts/route-ethX`
+
+*_Debian_*: - `/etc/network/interfaces`
+
+*_SUSE_*: - `/etc/sysconfig/network`
+
+When using systemd (systemd is getting more standardized), it is preferable to use Network Manager.
+
+On newer Linux distributions these configuration files are either non-existent, empty, or much smaller.
+
+== Network Manager
+
+Once upon a time, network connections were almost all wired (Ethernet) and did not change unless there was a significant change to the system.
+
+As a system was booted, it consulted the network configuration files in the `/etc` directory subtree in order to establish the interface properties such as static or dynamic (DCHP) address configuration, whether the device should be started at boot, etc.
+
+If there were multiple network devices, policies had to be established as to what order they would be brought up, which networks they would connect to, what they would be called, etc.
+
+As wireless connections became more common (as well as hotplug network devices such as on USB adapters), configuration became much more complicated, both because of the transient nature of the hardware and that of the specific networks being connected to.
+
+However, modern systems often have dynamic configurations:
+
+* Networks may change as a device is moved from place to place.
+* Wireless devices may have a large choice of networks to hook into.
+* Devices may change as hardware such as wireless devices, are plugged in or turned on and off.
+
+The previously discussed configuration files were created to deal with more static situations and are very distribution-dependent.
+A step away from distribution-dependent interfaces and configuration files was a big advance.
+
+While Network Manager still uses configuration files, it is usually best to rely on its various utilities for manipulating and updating them.
+
+== Network Manager Interfaces
+
+If you are using your laptop in a hotel room or a coffee shop, you are probably going to use whatever graphical interface your Linux distribution's desktop offers.
+You can use this to select between different networks, configure security and passwords, turn devices off and on, etc.
+
+If you are making a configuration change on your system that is likely to last for a while, you are likely to use `nmtui` as it has almost no learning curve and will edit the underlying configuration files for you.
+
+If you need to run scripts that change the network configuration, you will want to use `nmcli`.
+Or, if you are a command line junkie, you may want to use this instead of `nmtui`.
+
+If the GUI is properly done, you should be able to accomplish any task using any of these three methods.
+However, we will focus on `nmtui` and `nmcli` because they are essentially distribution-independent and hide any differences in underlying configuration files.
+
+== `nmtui`
+
+`nmtui` is rather straightforward to use.
+You can navigate with either the arrow keys or the tab key.
+
+Besides activating or editing connections, you also set the system hostname.
+However, some operations, such as this, cannot be done by normal users and you will be prompted for the root password to go forward.
+image:../../_resources/6d26aef4c56844fc9402a34a544c737b.png[3b611b89cfe5b1e368f92e5fd4ba1201.png] image:../../_resources/e604393d573845dfa0dc0ae73fa7bd82.png[743173e840aa60ed2ad1776b44f6c3e7.png] image:../../_resources/ce847af7a7bf498b889a6419ddbaa40e.png[bf7942fe8e11c01eb2b28de6f7a63719.png]
+
+== `nmcli`
+
+`nmcli` is the command line interface to Network Manager.
+You can issue direct commands, but it also has an interactive mode.
+
+For many details and examples, you can visit the Networking/CLI Fedora wiki webpage or you can type:
+
+`$ man nmcli-examples`
+
+We will explore the use of `nmcli` in lab exercises.
+image:../../_resources/939a1976b80443f6a96195e2a83d3bf1.png[2ebf12baa9cf7001e18dc91306320ba7.png]
+
+== Routing
+
+Routing is the process of selecting paths in a network along which to send network traffic.
+The routing table is a list of routes to other networks managed by the system.
+It defines paths to all networks and hosts, sending remote traffic to routers.
+
+To see the current routing table, you can use route or ip:
+
+`$ route -n`
+
+`$ ip route` image:../../_resources/27e132690a164aee892386f373054a25.png[b26db112b4c4819f66ead173956c381d.png]
+
+== Default Route
+
+The default route is the way packets are sent when there is no other match in the routing table for reaching the specified network.
+
+It can be obtained dynamically using DHCP.
+However, it can also be manually configured (static).
+With nmcli it can be done via:
+
+` $ sudo nmcli con mod virbr0 ipv4.routes 192.168.10.0/24 +ipv4.gateway 192.168.122.0 $ sudo nmcli con up virbr0 `
+
+or you can modify configuration files directly.
+
+On Red Hat-based systems, you can modify `/etc/sysconfig/network` putting in the line:
+
+`GATEWAY=x.x.x.x`
+
+or alternatively in `/etc/sysconfig/network-scripts/ifcfg-ethX` on a device-specific basis in the configuration file for the individual NIC.
+
+On Debian-based systems, the equivalent is putting:
+
+`gateway=x.x.x.x`
+
+in `/etc/network/interfaces`.
+
+On either system, you can set the default gateway at runtime with:
+
+`$ sudo route add default gw 192.168.1.10 enp2s0` ` $ route Kernel IP routing table Destination     Gateway       Genmask       Flags Metric Ref Use Iface default         192.168.1.10  0.0.0.0       UG    0      0     0 enp2s0 default         192.168.1.1   0.0.0.0       UG    1024   0     0 enp2s0 172.16.132.
+0 0.0.0.0     255.255.255.0 U     0      0     0 vmnet1 192.168.1.0     0.0.0.0       255.255.255.0 U     0      0     0 enp2s0 192.168.113.0   0.0.0.0       255.255.255.0 U     0      0     0 vmnet8 `
+
+Note that this might wipe out your network connection!
+You can restore either by resetting the network, or in the above example by doing:
+
+`$ sudo route add default gw 192.168.1.1 enp2s0`
+
+These changes are not persistent and will not survive a system restart.
+
+== Static Routes
+
+Static routes are used to control packet flow when there is more than one router or route.
+They are defined for each interface and can be either persistent or non-persistent.
+
+When the system can access more than one router, or perhaps there are multiple interfaces, it is useful to selectively control which packets go to which router.
+
+Either the route or ip command can be used to set a non-persistent route as in:
+
+`$ sudo ip route add 10.5.0.0/16 via 192.168.1.100`
+
+On a Red Hat-based system, a persistent route can be set by editing `/etc/sysconfig/network-scripts/route-ethX` as shown by:
+
+` $ cat /etc/sysconfig/network-scripts/route-eth0 10.5.0.0/16 via 172.17.9.1 `
+
+On a Debian-based system you need to add lines to `/etc/network/interfaces`, such as:
+
+` iface eth1 inet dhcp post-up route add -host 10.1.2.51 eth1 post-up route add -host 10.1.2.52 eth1 `
+
+On a SUSE-based system you need to add to or create a file such as `/etc/sysconfig/network/ifroute-eth0` with lines like:
+
+` #Destination Gateway Netmask Interface [Type] [Options] 192.168.1.150 192.168.1.1 255.255.255.255 eth0 10.1.1.150 192.168.233.1.1 eth0 10.1.1.0/24 192.168.1.1 - eth0 `
+
+where each field is separated by tabs.
+
+== Name Resolution
+
+Name resolution is the act of translating hostnames to the IP addresses of their hosts.
+For example, a browser or email client will take training.linuxfoundation.org and resolve the name to the IP address of the server (or servers) that serve training.linuxfoundation.org in order to transmit to and from that location.
+
+There are two facilities for doing this translation:
+
+* Static name resolution (using /etc/hosts).
+* Dynamic name resolution (using DNS servers).
+
+There are several command line tools that can be used to resolve the IP address of a hostname:
+
+`$ [dig | host | nslookup] linuxfoundation.org`
+
+* dig: generates the most information and has many options
+* host: more compact
+* nslookup: older.
+
+`dig` is the newest and the others are sometimes considered deprecated, but the output for host is the easiest to read and contains the basic information.
+
+One sometimes also requires reverse resolution: converting an IP address to a host name.
+Try feeding these three utilities a known IP address instead of a hostname, and examine the output.
+
+== `/etc/hosts`
+
+`/etc/hosts` holds a local database of hostnames and IP addresses.
+It contains a set of records (each taking one line) which map IP addresses with corresponding hostnames and aliases.
+
+A typical `/etc/hosts` file looks like:
+
+`$ cat /etc/hosts` 127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4 ::1 localhost localhost.localdomain localhost6 localhost6.localdomain6 192.168.1.100 hans hans7 hans64 192.168.1.150 bethe bethe7 bethe64 192.168.1.2 hp-printer 192.168.1.10 test32 test64 oldpc
+
+Such static name resolution is primarily used for local, small, isolated networks.
+It is generally checked before DNS is attempted to resolve an address;
+however, this priority can be controlled by `/etc/nsswitch.conf` (not often used today).
+
+`student@ubuntu:/etc$ ls -l host*`
+
+`+ -rw-r--r-- 1 root root  92 Oct 22 2015 host.conf -rw-r--r-- 1 root root   7 Apr 21 08:46 hostname -rw-r--r-- 1 root root 221 Apr 21 08:46 hosts -rw-r--r-- 1 root root 411 Apr 20 17:14 hosts.allow -rw-r--r-- 1 root root 711 Apr 20 17:14 hosts.deny +`
+
+The other host-related files in `/etc` are `/etc/hosts.deny` and `/etc/hosts.allow`.
+These are self-documenting and their purpose is obvious from their names.
+The allow file is searched first and the deny file is only searched if the query is not found there.
+
+`/etc/host.conf` contains general configuration information;
+it is rarely used.
+
+== DNS
+
+If name resolution cannot be done locally using `/etc/hosts`, then the system will query a DNS (Domain Name Server) server.
+
+DNS is dynamic and consists of a network of servers which a client uses to look up names.
+The service is distributed;
+any one DNS server has only information about its zone of authority;
+however, all of them together can cooperate to resolve any name.
+
+The machine's usage of DNS is configured in `/etc/resolv.conf`, which historically has looked like:
+
+` search example.com aps.org nameserver 192.168.1.1 nameserver 8.8.8.8 `
+
+which:
+
+* Can specify particular domains to search
+* Defines a strict order of nameservers to query
+* May be manually configured or updated from a service such as DHCP (Dynamic Host Configuration Protocol).
+
+Most modern systems will have an `/etc/hosts.resolv` file generated automatically, such as:
+
+` #Generated by NetworkManager 192.168.1.1 `
+
+which was generated by NetworkManager invoking DHCP on the primary network interface.
+image:../../_resources/61f9febe5b1b4ddba087ef6a955a1627.png[a90c8d5c9c09f314cc33c76731cbe465.png]
+
+== Network Diagnostics
+
+A number of basic network utilities are in every system administrator's toolbox.
+
+*Note* that some distributions (such as RHEL 7) require root privilege (as with sudo) in order to run the first three diagnostic utilities.
+
+Examples:
+
+`$ ping -c 10 linuxfoundation.org` `$ traceroute linuxfoundation.org` `$ mtr linuxfoundation.org`
+
+*_ping_*: Sends 64-byte test packets to designated network hosts and (if it finds them) tries to report back on the time required to reach it (in milliseconds), any lost packets, and some other parameters.
+Note that the exact output will vary according to the host being targeted, but you can at least see that the network is working and the host is reachable.
+image:../../_resources/bc1bcbc809934a56a33bcd0537f1ec69.png[c12f1f6621697af81e7a153b88e6d1e1.png]
+
+*_traceroute_*: This utility is used to display a network path to a destination.
+It shows the routers packets flow through to get to a host, as well as the time it takes for each hop.
+image:../../_resources/764c6a4fba1a470fa3f94db8dd2d1dee.png[b2b8d7c56081293ec54e173ae37130e7.png]
+
+*_mtr_*: It combines the functionality of ping and traceroute, and creates a continuously updated display, like top.
+image:../../_resources/b99a12cbd6914a51bc848798ffc036ca.png[c2537b7ec46c96e1e35ebe047dc19e13.png]
+
+*_dig_*: It is useful for testing DNS functionality.
+Note that one can also use host or nslookup, older programs that also try to return DNS information about a host.
+
+== Lab 35.1. Static Configuration of a Network Interface
+
+*NOTE*: You may have to use a different network interface name than eth0.
+You can most easily do this exercise with nmtui or your system's graphical interface.
+We will present a command line solution, but beware details may not exactly fit your distribution flavor or fashion.
+
+. Show your current IP address, default route and DNS settings for eth0.
+Keep a copy of them for resetting later.
+. Bring down eth0 and reconfigure to use a static address instead of DCHP, using the information you just recorded.
+. Bring the interface back up, and configure the nameserver resolver with the information that you noted before.
+Verify your hostname and then ping it.
+. Make sure your configuration works after a reboot.
+You will probably want to restore your configuration when you are done.

@@ -1,0 +1,460 @@
+:doctype: book
+
+Chapter 30 - User Account Management
+
+= Chapter 30 - User Account Management
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain the purpose of individual user accounts and list their main attributes.
+* Create new user accounts and modify existing account properties, as well as remove or lock accounts.
+* Understand how user passwords are set, encrypted and stored, and how to require changes in passwords over time for security purposes.
+* Explain how restricted shells and restricted accounts work.
+* Understand the role of the root account and when to use it.
+* Use Secure Shell (ssh) and remove logins and commands.
+
+== User Accounts
+
+Linux systems provide a multi-user environment which permits people and processes to have separate simultaneous working environments.
+
+The purposes of having individual user accounts include:
+
+* Providing each user with their own individualized private space
+* Creating particular user accounts for specific dedicated purposes
+* Distinguishing privileges among users.
+
+One special user account is for the root user, who is able to do anything on the system.
+To avoid making costly mistakes, and for security reasons, the root account should only be used when absolutely necessary.
+
+Normal user accounts are for people who will work on the system.
+Some user accounts (like the daemon account) exist for the purpose of allowing processes to run as a user other than root.
+
+In the next chapter, we will continue with a discussion of group management, where subsets of the users on the system can share files, privileges, etc., according to common interests.
+
+== Attributes of a User Account
+
+Each user on the system has a corresponding line in the /etc/passwd file that describes their basic account attributes.
+(We will talk about passwords, as well as this file, later).
+For example:
+
+`+ ....
+beav:x:1000:1000:Theodore Cleaver:/home/beav:/bin/bash warden:x:1001:1001:Ward Cleaver:/home/warden:/bin/bash dobie:x:1002:1002:Dobie Gillis:/home/dobie:/bin/bash ....
++` *_User name_*: The unique name assigned to each user.
+*_User password_*: The password assigned to each user.
+*_User Identification Number (UID)_*: A unique number assigned to the user account.
+The UID is used by the system for a variety of purposes, including a dtermination of user privileges and activity tracking.
+*_Group Identification Number (GID)_*: Indicates the primary, principal, or default group of the user.
+*_Comment or GECOS Information_*: A defined method to use the comment field for contact information (full name, email, office, contact number.) GECOS is an older term for general information.
+*_Home Directory_*: For most users this is a unique directory that offers a working area for the user.
+Normally, this directory is owned by the user, and except for root, will be found somewhere under the `/home` directory.
+*_Login Shell_*: Normally, this is a shell program such as `/bin/bash` or `/bin/csh`.
+Sometimes, however, an alternative program is referenced here for special cases.
+In general, this field will accept any executable.
+
+== Creating User Accounts with useradd
+
+The command:
+
+`$ sudo useradd dexter`
+
+will create an account for user dexter, using default algorithms for assigning user and group id, home directory, and shell choice.
+
+Specifically, the useradd command above causes the following steps to execute:
+
+* The next available UID greater than UID_MIN (specified in `/etc/login.defs`) by default is assigned as dexter's UID.
+* A group called `dexter` with a GID=UID is also created and assigned as dexter's primary group.
+* A home directory `/home/dexter` is created and owned by dexter.
+dexter's login shell will be `/bin/bash`.
+* The contents of `/etc/skel` is copied to `/home/dexter`.
+By default, `/etc/skel` includes startup files for bash and for the X Window system.
+* An entry of either `!!` or `!` is placed in the password field of the `/etc/shadow` file for dexter's entry, thus requiring the administrator to assign a password for the account to be usable.
+
+The defaults can easily be overruled by using options to useradd, as in:
+
+`$ sudo useradd -s /bin/csh -m -k /etc/skel -c "Bullwinkle J Moose" bmoose`
+
+where explicit non-default values have been given for some of the user attributes.
+
+== Modifying and Deleting User Accounts
+
+The root user can remove user accounts using userdel:
+
+`$ sudo userdel morgan`
+
+All references to the user morgan will be erased from `/etc/passwd`, `/etc/shadow`, and `/etc/group`.
+
+While this removes the account, it does not delete the home directory (usually `/home/morgan`) in case the account may be re-established later.
+If the `-r` option is given to `userdel`, the home directory will also be obliterated.
+However, all other files on the system owned by the removed user will remain.
+
+`usermod` can be used to change characteristics of a user account, such as group memberships, home directory, login name, password, default shell, user id, etc.
+For example, the command:
+
+`$ sudo usermod -L dexter`
+
+locks the account for dexter, so he cannot login.
+
+Usage is pretty straightforward.
+Note that usermod will take care of any modifications to files in the `/etc` directory as necessary.
+image:../../_resources/c0f1323b134347dc8e0ace39f6b8a48b.png[e73cf4d49222621e59cfd33cb27f82ee.png]
+
+== Locked Accounts
+
+Linux ships with some system accounts that are locked (such as bin, daemon, or sys), which means they can run programs, but can never login to the system and have no valid password associated with them.
+For example, `/etc/passwd` has entries like:
+
+` bin:x:1:1:bin:/bin:/sbin/nologin daemon:x:2:2:daemon:/sbin:/sbin/nologin `
+
+The nologin shell returns the following if a locked user tries to login to the system:
+
+`This account is currently not available.`
+
+or whatever message may be stored in `/etc/nologin.txt`.
+
+Such locked accounts are created for special purposes, either by system services or applications;
+if you scan `/etc/passwd` for users with the nologin shell, you can see who they are on your system.
+
+It is also possible to lock the account of a particular user, as in:
+
+`$ sudo usermod -L dexter`
+
+which means the account stays on the system but logging in is impossible.
+Unlocking can be done with the `-U` option.
+
+A customary practice is to lock a user's account whenever they leave the organization or is on an extended leave of absence.
+
+Another way to lock an account is to use `chage` to change the expiration date of an account to a date in the past:
+
+`$ sudo chage -E 2014-09-11 morgan`
+
+The actual date is irrelevant as long as it is in the past.
+
+== User IDs and /etc/passwd
+
+We have already seen how `/etc/passwd` contains one record (one line) for each user on the system, as in
+
+` beav:x:1000:1000:Theodore Cleaver:/home/beav:/bin/bash rsquirrel:x:1001:1001:Rocket J Squirrel:/home/rsquirrel:/bin/bash `
+
+and we have already discussed the fields in here.
+Each record consists of a number of fields separated by colons (:):
+
+* username - the user's unique name
+* password - either the hashed password (if /etc/shadow is not used) or a placeholder ("x" when /etc/shadow is used)
+* UID - user identification number
+* GID - primary group identification number for the user
+* comment - comment area, usually the user's real name
+* home - directory pathname for the user's home directory
+* shell - absolutely qualified name of the shell to invoke at login.
+
+If `/etc/shadow` is not used, the password field contains the hashed password.
+If it is used, it contains a place holder ("x").
+
+The convention most Linux distributions have used is that any account with a user ID less than 1000 is considered special and belongs to the system;
+normal user accounts start at 1000.
+The actual value is defined as UID_MIN and is defined in `/etc/login.defs`.
+
+Historically, Red Hat-derived distributions used UID_MIN=500, not 1000, but beginning with RHEL 7 the more common value of 1000 was adopted.
+
+If a User ID is not specified when using `useradd`, the system will incrementally assign UIDs starting at UID_MIN.
+
+Additionally, each user gets a Primary Group ID which, by default, is the same number as the UID.
+These are sometimes called User Private Groups (UPG).
+
+It is bad practice to edit `/etc/passwd`, `/etc/group` or `/etc/shadow` directly;
+use appropriate utilities such as `usermod`.
+
+== Why Use `/etc/shadow`?
+
+Use of `/etc/shadow` enables password aging on a per user basis.
+At the same time, it also allows for maintaining greater security of hashed passwords.
+
+The default permissions of `/etc/passwd` are 644 (-rw-r--r--);
+anyone can read the file.
+This is unfortunately necessary because system programs and user applications need to read the information contained in the file.
+These system programs do not run as the user root and, in any event, only root may change the file.
+
+Of particular concern are the hashed passwords themselves.
+If they appear in `/etc/passwd`, anyone may make a copy of the hashed passwords and then make use of utilities such as Crack and John the Ripper to guess the original cleartext passwords given the hashed password.
+This is a security risk!
+
+`/etc/shadow` has permission settings of 400 (-r--------), which means that only root can access this file.
+This makes it more difficult for someone to collect the hashed passwords.
+
+Unless there is a compelling good reason not to, you should use the `/etc/shadow` file.
+
+== `/etc/shadow`
+
+`/etc/shadow` contains one record (one line) for each user, as in:
+
+`+ daemon:*:16141:0:99999:7::: .....
+beav:$6$iCZyCnBJH9rmq7P.$RYNm10Jg3wrhAtUnahBZ/mTMg.RzQE6iBXyqaXHvxxbKTYqj.d 9wpoQFuRp7fPEE3hMK3W2gcIYhiXa9MIA9w1:16316:0:99999:7::: +`
+
+The colon-separated fields are:
+
+* *_username_*: unique user name
+* *_password_*: the hashed (sha512) value of the password
+* *_lastchange_*: days since Jan 1,1970 that password was last changed
+* *_mindays_*: minimum days before password can be changed
+* *_maxdays_*: maximum days after which password must be changed
+* *_warn_*: days before password expires that the user is warned
+* *_grace_*: days after password expires that account is disabled
+* *_expire_*: date that account is/will be disabled
+* *_reserved_*: reserved field.
+
+The username in each record must match exactly that found in `/etc/passwd`, and also must appear in the identical order.
+
+All dates are stored as the number of days since Jan.
+1, 1970 (the epoch date).
+
+The password hash is the string `"$6$"` followed by an eight character salt value, which is then followed by a $ and an 88 character (sha512) password hash.
+
+== Password Management
+
+Passwords can be changed with `passwd`;
+a normal user can change only their own password, while root can change any user password.
+When you type your password it is not shown;
+echoing back to the screen is suppressed.
+
+By default, the password choice is examined by `pam_cracklib.so`, which furthers making good password choices.
+
+A normal user changing their password:
+
+` $ passwd Changing password for clyde (current) UNIX password: <clyde's password> New UNIX password: <clyde's-new-password> Retype new UNIX password: <clyde's-new-password> passwd: all authentication tokens updated successfully `
+
+Also, note that when root changes a user's password, root is not prompted for the current password:
+
+` $ sudo passwd kevin New UNIX password: <kevin's-new-password> Retype new UNIX password: <kevin's-new-password> passwd: all authentication tokens updated successfully ` *NOTE:* Normal users will not be allowed to set bad passwords, such as ones that are too short, or based on dictionary words.
+However, root is allowed to do so.
+
+== Password Aging (`chage`)
+
+It is generally considered important to change passwords periodically.
+This limits the amount of time a cracked password can be useful to an intruder and also can be used to lock unused accounts.
+The downside is users can find this policy annoying and wind up writing down their ever-changing passwords and thus making them easier to steal.
+
+The utility that manages this is `chage`:
+
+`chage [-m mindays] [-M maxdays] [-d lastday] [-I inactive] [-E expiredate] [-W warndays] user`
+
+Examples:
+
+`$ sudo chage -l dexter` `$ sudo chage -m 14 -M 30 kevlin` `$ sudo chage -E 2012-4-1 morgan` `$ sudo chage -d 0 clyde`
+
+Only the root user can use `chage`.
+The one exception to this is that any user can run `chage -l` to see their aging, as in the screenshot on this page.
+
+To force a user to change their password at their next login, do:
+
+`$ sudo chage -d 0 USERNAME` image:../../_resources/8698949c9e79481ea55513f8e8be8ca0.png[39ba29c2a9270301ed56ca2131e18bf8.png]
+
+== Restricted Shell
+
+Under Linux, one can use a restricted shell, which can be invoked as:
+
+`$ bash -r`
+
+Some distributions may define an `rbash` command to the same effect.
+
+A restricted shell functions in a more tightly controlled environment than a standard shell, but otherwise functions normally.
+In particular, it:
+
+* Prevents the user from using cd to change directories.
+* Prevents the user from redefining the following environment variables: SHELL, ENV, and PATH.
+* Does not permit the user to specify the absolute path or executable command names starting from /.
+* Prevents the user from redirecting input and/or output.
+
+*NOTE*: There are other restrictions;
+the best way to see them all is to do man bash and search for RESTRICTED SHELL.
+
+Because the restricted shell executes $HOME/.bash_profile without restriction, the user must have neither write nor execute permission on the /home directory.
+
+Restricted accounts can also be enabled by creating a symlink to /bin/bash, named /bin/rbash, and using in /etc/passwd, as we will discuss next.
+
+*NOTE:* rbash is not secure!
+It is actually very easy to avoid the restrictions and modern techniques such as the use of SELinux are much more robust.
+We discuss only if you encounter the methods described here.
+
+For examples of how to defeat the use of restricted shells, one hackers guide to do this is _https://www.metahackers.pro/breakout-of-restricted-shell/["Escaping Restricted Shell rbash"]_ and another is https://www.exploit-db.com/docs/english/44592-linux-restricted-shell-bypass-guide.pdf[_"Linux Restricted Shell Bypass"_].
+
+Use of a restricted shell may give a false sense of security.
+
+== Restricted Accounts
+
+There are times when granting access to a user is necessary, but should be limited in scope.
+Setting up a restricted user account can be useful in this context.
+A restricted account:
+
+* Uses the restricted shell
+* Limits available system programs and user applications
+* Limits system resources
+* Limits access times
+* Limits access locations.
+
+From the command line, or from a script, a restricted shell may be invoked with `/bin/bash -r`.
+However, flags may not be specified in the `/etc/passwd` file.
+A simple way to get around this restriction would be to do one of the following:
+
+`$ cd /bin ; sudo ln -s bash rbash` `$ cd /bin ; sudo ln bash rbash` `$ cd /bin ; sudo cp bash rbash`
+
+and then, use `/bin/rbash` as the shell in `/etc/passwd`.
+
+When setting up such an account, one should avoid inadvertently adding system directories to the PATH environment variable;
+this would grant the restricted user the ability to execute other system programs, such as an unrestricted shell.
+
+Restricted accounts are also sometimes referred to as limited accounts.
+
+== The Root Account
+
+The root account should only be used for administrative purposes when absolutely necessary and never used as a regular account.
+Mistakes can be very costly, both for integrity and stability, and system security.
+
+By default, root logins through the network are generally prohibited for security reasons.
+You can permit Secure Shell logins using ssh, which is configured with `/etc/ssh/sshd_config`, and PAM (Pluggable Authentication Modules), which we will discuss later, through the `pam_securetty.so` module and the associated `/etc/securetty` file.
+Root login is permitted only from the devices listed in `/etc/securetty`.
+
+It is generally recommended that all root access be through su, or sudo (causing an audit trail of all root access through sudo).
+Note that some distributions (such as Ubuntu), by default actually prohibit logging in directly to the root account.
+
+PAM can also be used to restrict which users are allowed to su to root.
+It might also be worth it to configure `auditd` to log all commands executed as root.
+
+== SSH
+
+One often needs to login through the network into a remote system, either with the same user name or another.
+Or one needs to transfer files to and from a remote machine.
+In either case, one wants to do this securely, free from interception.
+
+SSH (Secure SHell) exists for this purpose.
+It uses encryption based on strong algorithms.
+Assuming the proper ssh packages are installed on a system, one needs no further setup to begin using ssh.
+
+To sign onto a remote system:
+
+` $ whoami student `
+
+` $ ssh farflung.com student@farflung.com's password: (type here)$ `
+
+where we are assuming there is a student account on farflung.com.
+To log in as a different user:
+
+` $ ssh root@farflung.com root@farflung.com's password: (type here) `
+
+or
+
+` $ ssh -l root farflung.com root@farflung.com's password: (type here) `
+
+To copy files from one system to another:
+
+` $ scp file.txt farflung.com:/tmp $ scp file.tex student@farflung.com/home/student $ scp -r some_dir farflung.com:/tmp/some_dir `
+
+(We have omitted the request for a password to save space;
+if you configure properly with encryption keys as we will discuss next, you will not need to supply a password.)
+
+To run a command on multiple machines simultaneously:
+
+` $for machines in node1 node2 node3 do (ssh $machines some_command &) done `
+
+== SSH Configuration Files
+
+You can configure SSH further to expedite its use, in particular to permit logging in without a password.
+User-specific configuration files are created under every user's home directory in the hidden .ssh directory:
+
+`+ $ ls -l ~/.ssh total 20 -rw-r--r-- 1 hilda hilda 1172 Sep 27 2014 authorized_keys -rw------- 1 hilda hilda 207 Aug 9 2011 config -rw------- 1 hilda hilda 1675 Dec 8 2010 id_rsa -rw-r--r-- 1 hilda hilda 393 Dec 8 2010 id_rsa.pub -rw-r--r-- 1 hilda hilda 1980 Apr 28 07:36 known_hosts +`
+
+which contains:
+
+* id_rsa: the user's private encryption key
+* id_rsa.pub: the user's public encryption key
+* authorized_keys: A list of public keys that are permitted to login
+* known_hosts: A list of hosts from which logins have been allowed in the past
+* config: A configuration file for specifying various options.
+
+First, a user has to generate their private and public encryption keys with `ssh-keygen`:
+
+``` $ ssh-keygen
+
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/hilda/.ssh/id_rsa): Enter passphrase (empty for no passphrase): Enter same passphrase again: Your identification has been saved in /home/hilda/.ssh/id_rsa Your public key has been saved in /home/hilda/.ssh/id_rsa.pub The key fingerprint is:76:da:d3:51:1e:c8:2d:3b:34:28:46:b2:2b:db:d1:c4 hilda@c7 The key's randomart image is: +--[ RSA 2048]----+ | . . | | = o o | | . E . * + | | = . . * . | | . o S . + . | | + o + . o | | . . . o . | | . | | | +-----------------+ ```
+
+This will also generate the public key, ̃``/.ssh/id_rsa.pub``.
+
+The private key must never ever be shared with anyone!
+
+The public key can be given to any machine with which you want to permit password-less access.
+It should also be added to your authorized_keys file, together with all the public keys from other users who have accounts on your machine and you want to permit password-less access to their accounts.
+
+The known_hosts file is gradually built up as ssh accesses occur.
+If the system detects changes in the users who are trying to log in through ssh, it will warn you of them and afford the opportunity to deny access.
+Note that the authorized_keys file contains information about users and machines:
+
+`+ $ cat authorized_keys ssh-rsa AAAAB3NzaC1yc2EAAAADAQ ...0000aSd...hilda@sbc +`
+
+while the `known_hosts` only contains information about computer nodes:
+
+`+ $ cat known_hosts 192.30.252.129 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSw ....BK6Tb...== +`
+
+You can examine the man ssh_config page to see what kinds of options can go into the ssh configuration files.
+
+== Remote Graphical Login
+
+Login into the remote machine with full graphical desktop.
+Often, you may use VNC (Virtual Network Computing) to connect to a system.
+A common implementation is tigervnc.
+
+To test this, first make sure that you have the vnc packages installed:
+
+``` $ which vncserver vncviewer
+
+/usr/bin/vncserver /usr/bin/vncviewer ```
+
+If you do not find these programs, you will have to install with something like:
+
+`$ sudo [dnf|yum|zypper|apt-get] install tigervnc*`
+
+using the right package management system command (the exact package name have varied between Linux distributions, so we are not giving exact package names.
+You may wind up installing more than you need, but the packages are not large).
+
+Start the server as a normal user with:
+
+`$ vncserver`
+
+You can test with:
+
+`$ vncviewer localhost:2`
+
+You may have to play with numbers other than 2, such as 1, 3, 4\..., depending on what you are running at the moment, and how your machine is configured.
+
+To view from a remote machine, it is just slightly different:
+
+`$ vncviewer -via student@some_machine localhost:2`
+
+If you get a rather strange message about having to authenticate because of 'color profile', and no passwords work, you have to kill the colord daemon on the server machine, as in:
+
+`$ sudo systemctl stop colord`
+
+This is a bug (not a feature), and it will only appear in some distributions and some systems for unclear reasons.
+
+== Lab 30.1: Working with User Accounts
+
+. Examine /etc/passwd and /etc/shadow,  comparing the fields in each file,  especially for the normal user account.
+What is the same and what is different?
+. Create a  user1 account using useradd.
+. Login as user1 using ssh.
+You can just do this with: $ ssh user1@localhost It should fail because you need a password for user1;
+it was never established.
+. Set the password for user1 to user1pw and then try to login again as user1.
+. Look at the new records which were created in the /etc/passwd, /etc/group and the /etc/shadow files.
+. Look at the /etc/default/useradd file and see what the current defaults are set to.
+Also look at the /etc/login.defs file.
+. Create a user account for user2 which will use the Korn shell (ksh) as its default shell.
+If you do not have /bin/ksh install it or use the C shell at /bin/csh.
+Set the password to user2pw.
+. Look at /etc/shadow.
+What is the current expiration date for the user1 account?
+. Use chage to set the account expiration date of user1 to December 1, 2013.
+Look at /etc/shadow to see what the new expiration date is.
+. Use usermod to lock the user1 account.
+Look at /etc/shadow and see what has changed about user1 `'s password.
+Reset the password to userp1 on the account to complete this exercise.

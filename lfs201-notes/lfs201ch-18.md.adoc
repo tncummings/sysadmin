@@ -1,0 +1,396 @@
+:doctype: book
+
+Chapter 18 - Filesystem Features: Attributes, Creating, Checking, Mounting
+
+= Chapter 18 - Filesystem Features: Attributes, Creating, Checking, Mounting
+
+== Learning Objectives
+
+By the end of this chapter, you should be able to:
+
+* Explain concepts such as directory files and extended attributes.
+* Create and format filesystems.
+* Check and fix errors on filesystems.
+* Mount and unmount filesystems.
+* Use network file systems.
+* Understand how to automount filesystems and make sure they mount at boot.
+
+== lsattr and chattr
+
+Extended Attributes associate metadata not interpreted directly by the filesystem with files.
+Four namespaces exist: user, trusted, security, and system.
+The system namespace is used for Access Control Lists (ACLs), and the security namespace is used by SELinux.
+
+Flag values are stored in the file inode and may be modified and set only by the root user.
+They are viewed with lsattr and set with chattr.
+Flags may be set for files:
+
+*i: Immutable*: A file with the immutable attribute cannot be modified (not even by root).
+It cannot be deleted or renamed.
+No hard link can be created to it, and no data can be written to the file.
+Only the superuser can set or clear this attribute.
+
+*a: Append-only*: A file with the append-only attribute set can only be opened in append mode for writing.
+Only the superuser can set or clear this attribute.
+
+*d: No-dump*: A file with the no-dump attribute set is ignored when the dump program is run.
+This is useful for swap and cache files that you don't want to waste time backing up.
+
+*A: No atime update*: A file with the no-atime-update attribute set will not modify its atime (access time) record when the file is accessed but not otherwise modified.
+This can increase the performance on some systems because it reduces the amount of disk I/O on the system.
+
+Note that there are other flags that can be set;
+typing `man chattr` will show the whole list.
+The format for chattr is:
+
+`$ chattr [+|-|=mode] filename`
+
+lsattr is used to display attributes for a file:
+
+`$ lsattr filename`
+
+== mkfs
+
+Every filesystem type has a utility for formatting (making) a filesystem on a partition.
+The generic name for these utilities is mkfs.
+However, this is just a frontend for filesystem-specific programs, each of which may have particular options.
+image:../../_resources/3fc1f421a72b43ad9ed6b3298ef35371.png[68af317e3c35dc933bb7ece634496f01.png]
+
+The general format for mkfs is:
+
+`mkfs [-t fstype] [options] [device-file]`
+
+where [device-file] is usually a device name like `/dev/sda3` or `/dev/vg/lvm1`.
+
+The following two commands are entirely equivalent:
+
+`$ sudo mkfs -t ext4 /dev/sda10`
+
+`$ sudo mkfs.ext4 /dev/sda10`
+
+Each filesystem type has its own particular options that can be set when formatting.
+For example, when creating an ext4 filesystem, one thing to keep in mind are the journalling settings.
+These include defining the journal file size and whether or not to use an external journal file.
+
+You should look at the man page for each of the mkfs.* programs to see details.
+
+== fsck
+
+Every filesystem type has a utility designed to check for errors (and hopefully fix any that are found).
+The generic name for these utilities is fsck.
+However, this is just a frontend for filesystem-specific programs.
+image:../../_resources/b69757862dac46158af14950775a9876.png[e0af9bae8ac3691c5ed7c39fac505abd.png]
+
+The general format for fsck is:
+
+`fsck [-t fstype] [options] [device-file]`
+
+where [device-file] is usually a device name like `/dev/sda3` or `/dev/vg/lvm1`.
+Usually, you do not need to specify the filesystem type, as fsck can figure it out by examining the superblocks at the start of the partition.
+
+You can control whether any errors found should be fixed one by one manually with the -r option, or automatically, as best possible, by using the -a option, etc.
+In addition, each filesystem type may have its own particular options that can be set when checking.
+
+Note that journalling filesystems are much faster to check than older generation filesystems for two reasons:
+
+* You rarely need to scan the entire partition for errors, as everything but the very last transaction has been logged and confirmed, so it takes almost no time to check.
+* Even if you do check the whole filesystem, newer filesystems have been designed with fast fsck in mind;
+older filesystems did not think much about this when they were designed as sizes were much smaller.
+
+The following two commands are entirely equivalent:
+
+`$ sudo fsck -t ext4 /dev/sda10`
+
+`$ sudo fsck.ext4 /dev/sda10`
+
+If the filesystem is of a type understood by the operating system, you can almost always just do:
+
+`$ sudo fsck /dev/sda10`
+
+and the system will figure out the type by examining the first few bytes on the partition.
+
+`fsck` is run automatically after a set number of mounts or a set interval since the last time it was run or after an abnormal shutdown.
+It should only be run on unmounted filesystems.
+You can force a check of all mounted filesystems at boot by doing:
+
+`$ sudo touch /forcefsck`
+
+`$ sudo reboot`
+
+*My Note: Use `tune2fs` on ext2-4 filesystems on Ubuntu to force a filesystem check on boot.*
+
+The file `/forcefsck` will disappear after the successful check.
+One reason this is a valuable trick is it can do a fsck on the root filesystem, which is hard to do on a running system.
+
+You should look at the man page for each of the fsck.* programs to see details.
+
+== Mounting Filesystems
+
+All accessible files in Linux are organized into one large hierarchical tree structure with the head of the tree being the root directory (/).
+However, it is common to have more than one partition (each of which can have its own filesystem type) joined together in the same filesystem tree.
+These partitions can also be on different physical devices, even on a network.
+
+The `mount` program allows attaching at any point in the tree structure;
+`umount` allows detaching them.
+
+The mount point is the directory where the filesystem is attached.
+It must exist before mount can use it;
+mkdir can be used to create an empty directory.
+If a pre-existing directory is used and it contains files prior to being used as a mount point, they will be hidden after mounting.
+These files are not deleted and will again be visible when the filesystem is unmounted.
+
+By default, only the superuser can mount and unmount filesystems.
+
+Each filesystem is mounted under a specific directory, as in:
+
+`$ sudo mount -t ext /dev/sdb4 /home`
+
+* Mounts an ext4 filesystem
+* Usually not necessary to specify the type with the -t option
+* The filesystem is located on a specific partition of a hard drive (/dev/sdb4)
+* The filesystem is mounted at the position /home in the current directory tree
+* Any files residing in the original /home directory are hidden until the partition is unmounted.
+
+== mount
+
+The general form for `mount` is:
+
+`mount [options] <source> <directory>`
+
+Note that in this example the filesystem is mounted by using the device node it resides on.
+However, it is also possible to mount using a label or a UUID.
+Thus, the following are all equivalent:
+
+`$ sudo mount /dev/sda2 /home` `$ sudo mount LABEL=home /home` `$ sudo mount -L home /home` `$ sudo mount UUID=26d58ee2-9d20-4dc7-b6ab-aa87c3cfb69a /home` `$ sudo mount -U 26d58ee2-9d20-4dc7-b6ab-aa87c3cfb69a /home`
+
+Labels are assigned by filesystem type specific utilities, such as `e2label`, and UUIDs are assigned when partitions are created as containers for the filesystem, and formatted with `mkfs`.
+
+While any of these three methods for specifying the device can be used, modern systems deprecate using the device node form because the names can change according to how the system is booted, which hard drives are found first, etc.
+Labels are an improvement, but, on rare occasions, you could have two partitions that wind up with the same label.
+UUIDs, however, should always be unique, and are created when partitions are created.
+
+`mount` takes many options, some generic like -a (mount all filesystems mentioned in `/etc/fstab`) and many filesystem specific;
+it has a very long man page.
+A common example would be:
+
+`$ sudo mount -o remount,ro /myfs`
+
+which remounts a filesystem with a read-only attribute.
+
+Here is an example of how to get a quick summary of mount options:
+
+`$ mount --help`  image:../../_resources/b7112c4077e8407383cb21e6be68d5c7.png[11ce88f8da383cae5fb7405e8b79f66e.png]
+
+== Currently Mounted Filesystems
+
+The list of currently mounted filesystems can be seen by typing:
+
+`$ mount` image:../../_resources/4748cbe395f04250b0e20973bcd1982c.png[bfbae511fd52ff4e1702b7f50f3af1eb.png]
+
+== umount
+
+Filesystems can be unmounted, as in:
+
+`$ umount [device-file | mount-point]`
+
+Below are some examples of how to unmount a filesystem:
+
+* Unmount the /home filesystem:   `$ sudo umount /home`
+* Unmount the /dev/sda3 device:   `$ sudo umount /dev/sda3`
+
+Note that the command to unmount a filesystem is - umount *(not unmount!)*.
+
+Like mount, umount has many options, many of which are specific to filesystem type.
+Once again, the man pages are the best source for specific option information.
+
+The most common error encountered when unmounting a filesystem is trying to do this on a filesystem currently in use;
+i.e., there are current applications using files or other entries in the filesystem.
+
+This can be as simple as having a terminal window open in a directory on the mounted filesystem.
+Just using `cd` in that window, or killing it, will get rid of the device is busy error and allow unmounting.
+
+However, if there are other processes inducing this error, you must kill them before unmounting the filesystem.
+You can use `fuser` to find out which users are using the filesystem and kill them (be careful with this, you may also want to warn users first).
+You can also use `lsof` ("list open files") to try and see which files are being used and blocking unmounting.
+
+== Network Shares (NFS)
+
+It is common to mount remote filesystems through network shares, so they appear as if they were on the local machine.
+Probably the most common method used historically has been NFS (Network File System).
+
+NFS was originally developed by Sun Microsystems in 1989, and has been continuously updated.
+Modern systems use NFSv4, which has been continuously updated since 2000.
+
+Other network filesystems include AFS (Andrew File System), and SMB (Server Message Block), also termed CIFS (Common Internet File System).
+
+Because a network filesystem may be unavailable at any time, either because it is not present on the network share, or the network is unavailable, systems have to be prepared for this possibility.
+
+Thus, in such circumstances, a system should be instructed not to get hung, or blocked, while waiting longer than a specified period.
+These can be specified in the mount command:
+
+`$ sudo mount -t nfs myserver.com:/shdir /mnt/shdir`
+
+or in `/etc/fstab`.
+Put the following line in /etc/fstab to mount on boot or with mount -a:
+
+`myserver.com:/shdir /mnt/shdir nfs rsize=8192,wsize=8192,timeo=14,intr 0 0`
+
+The system may try to mount the NFS filesystem before the network is up.
+The netdev and noauto options can be used.
+For more information, check man nfs, examine the mount options.
+
+It can also be solved using `autofs` or `automount`.
+
+Mount has a large amount of options, some of which are specific to nfs.
+See the man pages for both nfs and mount for more details.
+
+== Mounting at Boot and /etc/fstab
+
+During system initialization, the following command is executed:
+
+`mount -a`
+
+This mounts all filesystems listed in the `/etc/fstab` configuration file.
+Entries can refer to both local and remote network-mounted filesystems.
+The screenshot shows you an example of how to mount all filesystems listed in the `/etc/fstab` configuration file during system boot.
+
+This file shows what filesystems may be automatically mounted at boot and where they may be found on the local machine or network.
+It can specify who may mount them and with what permissions, and other relevant options.
+Some of the lines refer to special pseudo-filesystems such as proc, sys, and devpts.
+
+image::../../_resources/4175327b1bc44eceb9c29b1307d22815.png[8d0c37efde323bbc9adf36b2f004403e.png]
+
+Each record in the `/etc/fstab` file contains white space separated files of information about a filesystem to be mounted:
+
+* *Device file name, label, or UUID*: For filesystems which do not have a device node, such as tmpfs, proc, and sysfs, this field is just a placeholder;
+sometimes, you will see the word none in that column, or used on the command line.
+* *Mount point*: This can also be a placeholder, like for swap, which is not mounted anywhere.
+* *Filesystem type (i.e., ext4, xfs, btrfs, vfat)*
+* *A comma-separated list of options*
+* *dump frequency (or a 0)*: This is used by the rarely used dump -w command.
+* *fsck pass number*: (or 0, meaning do not check state at boot).
+
+The mount and umount utilities can use information in */etc/fstab*;
+in such a case, you could type
+
+`$ sudo mount /usr/src`
+
+instead of
+
+`$ sudo mount LABEL=src /usr/src`
+
+in the above example.
+
+== Automatic Filesystem Mounting
+
+Linux systems have long had the ability to mount a filesystem only when it is needed.
+Historically, this was done using autofs.
+This utility requires installation of the autofs package using the appropriate package manager and configuration of files in /etc.
+
+While autofs is very flexible and well understood, systemd-based systems come with automount facilities built into the framework.
+Configuring this is as simple as adding a line in /etc/fstab specifying the proper device, mount point and mounting options, such as:
+
+`LABEL=Sam128 /SAM ext4 noauto,x-systemd.automount,x-systemd.device-timeout=10,x-systemd.idle-timeout=30 0 0`
+
+and then, either rebooting or issuing the command:
+
+`$ sudo systemctl daemon-reload` `$ sudo systemctl restart local-fs.target`
+
+Next, we will give an example and explain the options.
+
+== automount Example
+
+The example provided on the next page mounts a USB pen drive that is always plugged into the system, only when it is used.
+Options in `/etc/fstab`:
+
+* *noauto*: Do not mount at boot.
+Here, auto does not refer to automount.
+* *x-systemd.automount*: Use the systemd automount facility.
+* *x-systemd.automount.device-timeout=10*: If this device is not available, say it is a network device accessible through NFS, timeout after 10 seconds instead of getting hung.
+* *x-systemd.automount.idle-timeout=30*: If the device is not used for 30 seconds, unmount it.
+
+*Note that the device may be mounted during boot, but then it should be unmounted after the timeout specified.
+The screenshot shows how the device is only available once it is used.* image:../../_resources/ccc7941f689a4d2db258fc7de3e07ce5.png[5d89d92a67c30b8f47ce1d33d80732a9.png]
+
+== Lab 18.1. Working with File Attributes
+
+Exercise 18.1: Working with File Attributes 1.
+With your normal user account use touch to create an empty file named `/tmp/appendit`.
+2.
+Use cat to append the contents of `/etc/hosts` to `/tmp/appendit`.
+3.
+Compare the contents of `/tmp/appendit` with `/etc/hosts`;
+there should not be any differences.
+4.
+Try to add the append-only attribute to `/tmp/appendit` by using `chattr` . You should see an error here.
+Why?
+5.
+As root, retry adding the append-only attribute;
+this time it should work.
+Look at the file's extended attributes by using `lsattr`.
+6.
+As a normal user, try and use cat to copy over the contents of `/etc/passwd` to `/tmp/appendit`.
+You should get an error.
+Why?
+7.
+Try the same thing again as root.
+You should also get an error.
+Why?
+8.
+As the normal user, again use the append redirection operator ( >> ) and try appending the `/etc/passwd` file to `/tmp/appendit`.
+This should work.
+Examine the resulting file to confirm.
+9.
+As root, set the immutable attribute on `/tmp/appendit`, and look at the extended attributes again.
+10.
+Try appending output to `/tmp/appendit`, try renaming the file, creating a hard link to the file, and deleting the file as both the normal user and as root.
+11.
+We can remove this file by removing the extended attributes.
+Do so.
+
+``` tom@aur6a:~$ touch /tmp/appendit tom@aur6a:~$ cat /etc/hosts >> /tmp/appendit tom@aur6a:~$ less /tmp/appendit tom@aur6a:~$ diff /etc/hosts /tmp/appendit tom@aur6a:~$ chattr +a /tmp/appendit chattr: Operation not permitted while setting flags on /tmp/appendit tom@aur6a:~$ sudo chattr +a /tmp/appendit tom@aur6a:~$ lsattr /tmp/appendit -----a--------e----- /tmp/appendit tom@aur6a:~$ cat /etc/passwd > /tmp/appendit bash: /tmp/appendit: Operation not permitted tom@aur6a:~$ sudo cat /etc/passwd > /tmp/appendit bash: /tmp/appendit: Operation not permitted tom@aur6a:~$ cat /etc/passwd >> /tmp/appendit tom@aur6a:~$ cat /tmp/appendit 127.0.0.1	localhost ::1		localhost 127.0.1.1	pop-os.localdomain	pop-os root:x:0:0:root:/root:/bin/bash daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin bin:x:2:2:bin:/bin:/usr/sbin/nologin sys:x:3:3:sys:/dev:/usr/sbin/nologin sync:x:4:65534:sync:/bin:/bin/sync games:x:5:60:games:/usr/games:/usr/sbin/nologin man:x:6:12:man:/var/cache/man:/usr/sbin/nologin lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin mail:x:8:8:mail:/var/mail:/usr/sbin/nologin news:x:9:9:news:/var/spool/news:/usr/sbin/nologin uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin proxy:x:13:13:proxy:/bin:/usr/sbin/nologin www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin backup:x:34:34:backup:/var/backups:/usr/sbin/nologin list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin irc:x:39:39:ircd:/var/run/ircd:/usr/sbin/nologin gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin messagebus:x:100:103::/nonexistent:/usr/sbin/nologin syslog:x:101:107::/home/syslog:/usr/sbin/nologin _apt:x:102:65534::/nonexistent:/usr/sbin/nologin systemd-network:x:103:108:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin systemd-resolve:x:104:109:systemd Resolver,,,:/run/systemd:/usr/sbin/nologin systemd-timesync:x:105:110:systemd Time Synchronization,,,:/run/systemd:/usr/sbin/nologin geoclue:x:106:111::/var/lib/geoclue:/usr/sbin/nologin colord:x:107:113:colord colour management daemon,,,:/var/lib/colord:/usr/sbin/nologin gnome-initial-setup:x:108:65534::/run/gnome-initial-setup/:/bin/false speech-dispatcher:x:109:29:Speech Dispatcher,,,:/run/speech-dispatcher:/bin/false gdm:x:110:116:Gnome Display Manager:/var/lib/gdm3:/bin/false avahi-autoipd:x:111:117:Avahi autoip daemon,,,:/var/lib/avahi-autoipd:/usr/sbin/nologin avahi:x:112:118:Avahi mDNS daemon,,,:/var/run/avahi-daemon:/usr/sbin/nologin tss:x:113:121:TPM software stack,,,:/var/lib/tpm:/bin/false pulse:x:114:122:PulseAudio daemon,,,:/var/run/pulse:/usr/sbin/nologin rtkit:x:115:124:RealtimeKit,,,:/proc:/usr/sbin/nologin usbmux:x:116:46:usbmux daemon,,,:/var/lib/usbmux:/usr/sbin/nologin _flatpak:x:117:125:Flatpak system-wide installation helper,,,:/nonexistent:/usr/sbin/nologin cups-pk-helper:x:118:120:user for cups-pk-helper service,,,:/home/cups-pk-helper:/usr/sbin/nologin saned:x:119:126::/var/lib/saned:/usr/sbin/nologin dnsmasq:x:120:65534:dnsmasq,,,:/var/lib/misc:/usr/sbin/nologin tcpdump:x:121:128::/nonexistent:/usr/sbin/nologin uuidd:x:122:129::/run/uuidd:/usr/sbin/nologin nvidia-persistenced:x:123:130:NVIDIA Persistence Daemon,,,:/nonexistent:/usr/sbin/nologin systemd-coredump:x:999:999:systemd Core Dumper:/:/usr/sbin/nologin tom:x:1000:1000:Tom,,,:/home/tom:/bin/bash
+
+tom@aur6a:~$ sudo chattr +i /tmp/appendit [sudo] password for tom:  tom@aur6a:~$ lsattr /tmp/appendit ----ia--------e----- /tmp/appendit tom@aur6a:~$ cat /etc/hosts >> /tmp/appendit bash: /tmp/appendit: Operation not permitted tom@aur6a:~$ sudo cat /etc/hosts >> /tmp/appendit bash: /tmp/appendit: Operation not permitted tom@aur6a:~$ mv /tmp/appendit /tmp/appenditmyass mv: cannot move '/tmp/appendit' to '/tmp/appenditmyass': Operation not permitted tom@aur6a:~$ ln /tmp/appendit ~/appendit ln: failed to create hard link '/home/tom/appendit' \=> '/tmp/appendit': Operation not permitted tom@aur6a:~$ sudo ln /tmp/appendit ~/appendit ln: failed to create hard link '/home/tom/appendit' \=> '/tmp/appendit': Operation not permitted tom@aur6a:~$ chattr -i /tmp/appendit chattr: Operation not permitted while setting flags on /tmp/appendit tom@aur6a:~$ sudo chattr -i /tmp/appendit tom@aur6a:~$ sudo chattr -a /tmp/appendit tom@aur6a:~$ lsattr /tmp/appendit --------------e----- /tmp/appendit tom@aur6a:~$ rm /tmp/appendit  tom@aur6a:~$ ```  ## Lab 18.2.
+Mounting Options 1.
+Use `fdisk` to create a new 250 MB partition on your system, probably on `/dev/sda`.
+Or create a file full of zeros to use as a loopback file to simulate a new partition.
+2.
+Use `mkfs` to format a new filesystem on the partition or loopback file just created.
+Do this three times, changing the block size each time.
+Note the locations of the superblocks, the number of block groups and any other pertinent information, for each case.
+3.
+Create a new subdirectory (say `/mnt/tempdir` ) and `mount` the new filesystem at this location.
+Verify it has been mounted.
+4.
+Unmount the new filesystem, and then remount it as read-only.
+5.
+Try to create a file in the mounted directory.
+You should get an error here, why?
+6.
+Unmount the filesystem again.
+7.
+Add a line to your `/etc/fstab` file so that the filesystem will be mounted at boot time.
+8.
+Mount the filesystem.
+9.
+Modify the configuration for the new filesystem so that binary files may not be executed from the filesystem (change defaults to noexec in the `/mnt/tempdir` entry).
+Then remount the filesystem and copy an executable file (such as `/bin/ls` ) to `/mnt/tempdir` and try to run it.
+You should get an error: why?
+10.
+When you are done you will probably want to clean up by removing the entry from `/etc/fstab`.
+
+``` tom@aur6a:~$ dd if=/dev/zero of=/tmp/imagefile bs=1M count=1024 1024+0 records in 1024+0 records out 1073741824 bytes (1.1 GB, 1.0 GiB) copied, 7.16436 s, 150 MB/s tom@aur6a:~$ man mkfs.ext4 tom@aur6a:~$ mkfs.ext4 -b 1024 /tmp/imagefile  mke2fs 1.45.5 (07-Jan-2020) Discarding device blocks: done                          + Creating filesystem with 1048576 1k blocks and 65536 inodes Filesystem UUID: 0d917a5a-adb1-45a5-a4bf-b1b944d337e2 Superblock backups stored on blocks:  	8193, 24577, 40961, 57345, 73729, 204801, 221185, 401409, 663553,  	1024001
+
+Allocating group tables: done                          + Writing inode tables: done                          + Creating journal (16384 blocks): done Writing superblocks and filesystem accounting information: done
+
+tom@aur6a:~$ mkfs.ext4 -b 2048 /tmp/imagefile  mke2fs 1.45.5 (07-Jan-2020) /tmp/imagefile contains a ext4 file system 	created on Mon Mar  1 11:12:53 2021 Proceed anyway?
+(y,N) y Discarding device blocks: done                          + Creating filesystem with 524288 2k blocks and 65536 inodes Filesystem UUID: 1c865424-5915-4926-80f0-d83e80093ffb Superblock backups stored on blocks:  	16384, 49152, 81920, 114688, 147456, 409600, 442368
+
+Allocating group tables: done                          + Writing inode tables: done                          + Creating journal (16384 blocks): done Writing superblocks and filesystem accounting information: done
+
+tom@aur6a:~$ mkfs.ext4 -b 4096 /tmp/imagefile  mke2fs 1.45.5 (07-Jan-2020) /tmp/imagefile contains a ext4 file system 	created on Mon Mar  1 11:13:35 2021 Proceed anyway?
+(y,N) y Discarding device blocks: done                          + Creating filesystem with 262144 4k blocks and 65536 inodes Filesystem UUID: f73a8414-da34-433a-8b69-c7a6b79369c9 Superblock backups stored on blocks:  	32768, 98304, 163840, 229376
+
+Allocating group tables: done                          + Writing inode tables: done                          + Creating journal (8192 blocks): done Writing superblocks and filesystem accounting information: done
+
+tom@aur6a:~$ mkdir /mnt/tempdir mkdir: cannot create directory '`/mnt/tempdir`': Permission denied tom@aur6a:~$ sudo mkdir /mnt/tempdir tom@aur6a:~$ mount /tmp/imagefile /mnt/tempdir/ mount: only root can do that tom@aur6a:~$ sudo mount /tmp/imagefile /mnt/tempdir/ tom@aur6a:~$ mount |grep "imagefile" /tmp/imagefile on /mnt/tempdir type ext4 (rw,relatime) tom@aur6a:~$ sudo umount /mnt/tempdir  tom@aur6a:~$ mount |grep "imagefile" tom@aur6a:~$ sudo mount -r /tmp/imagefile /mnt/tempdir/ tom@aur6a:~$ mount |grep "imagefile" /tmp/imagefile on /mnt/tempdir type ext4 (ro,relatime) tom@aur6a:~$ mkdir /mnt/tempdir/test mkdir: cannot create directory '`/mnt/tempdir/test`': Read-only file system tom@aur6a:~$ sudo umount /mnt/tempdir  tom@aur6a:~$ sudo mount -r -o noexec /tmp/imagefile /mnt/tempdir/ tom@aur6a:~$ mount |grep "imagefile" /tmp/imagefile on /mnt/tempdir type ext4 (ro,noexec,relatime) tom@aur6a:~$ ```
