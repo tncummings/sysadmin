@@ -1,0 +1,1 @@
+ tar -cvf foo-all.tar  `find /  | grep -e 'foo' | grep -e systemd | grep -v -e cgroup `

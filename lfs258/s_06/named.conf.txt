@@ -1,0 +1,15 @@
+// add these lines to the bottom
+// named.conf.local (Ubuntu) 
+// or named.conf (RHEL) as appropiate
+// Full path names may be required. 
+
+
+zone "example.com." IN {
+	type primary;
+	file "example.com.zone";
+};
+
+zone "45.20.10.in-addr.arpa." IN {
+	type primary;
+	file "45.20.10.in-addr.arpa.zone";
+};

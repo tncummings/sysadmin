@@ -1,0 +1,13 @@
+# store in  /etc/systemd/system/home-share-nfs.mount
+# unit name must match the mount point (the where matches the unit file name) 
+
+[Unit]
+Description=basic mount options file for auto-mounting home-share-nfs
+
+[Mount]
+What=localhost:/home/export/nfs
+Where=/home/share/nfs
+Type=nfs
+
+[Install]
+WantedBy=multi-user.target

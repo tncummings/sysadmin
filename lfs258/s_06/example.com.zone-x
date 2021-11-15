@@ -1,0 +1,19 @@
+$TTL 30
+@ IN SOA localhost. admin.example.com. (
+2020040901 ; serial YYYYMMDDRR format
+3H ; refresh
+1H ; retry
+2H ; expire
+1M) ; neg ttl
+	 	 IN NS localhost.;
+www.example.com. IN A 10.0.0.192
+foo.example.com. IN A 10.0.0.193
+bar.example.com. IN CNAME www.example.com.
+
+
+
+
+
+
+
+

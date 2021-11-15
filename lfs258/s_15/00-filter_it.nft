@@ -1,0 +1,10 @@
+table inet filter_it {
+	chain input_stuff {
+		type filter hook input priority 0; policy accept;
+		ct state established,related accept
+		iifname "lo" accept
+		tcp dport ssh accept
+		counter packets 14 bytes 872
+		drop
+	}
+}

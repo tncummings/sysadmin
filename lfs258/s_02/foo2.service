@@ -1,0 +1,6 @@
+[Unit]
+Description=Example service unit to run stress 
+[Service]
+ExecStart=/usr/bin/stress --cpu 2 --io 2 --vm 4 --vm-bytes 256M
+[Install]
+WantedBy=multi-user.target 

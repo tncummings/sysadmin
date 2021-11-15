@@ -1,0 +1,4 @@
+[Unit]
+Description=stress slice
+[Slice]
+CPUQuota=30%

@@ -1,0 +1,12 @@
+# store in /etc/systemd/system/home-share-nfs.automount
+# unit name must match the mount point (the where matches the unit file name) 
+
+[Unit]
+Description=options for our home-share-nfs mount
+
+[Automount]
+Where=/home/share/nfs
+TimeoutIdleSec=10
+
+[Install]
+WantedBy=multi-user.target

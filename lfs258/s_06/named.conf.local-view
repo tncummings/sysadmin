@@ -1,0 +1,28 @@
+view "internal"  {
+	match-clients  {127.0.0.0/8; 10.0.3.0/16; };
+zone "example.com." IN {
+type primary;
+file "example.com.zone";
+};
+};
+
+view "external"  {
+        match-clients  { any; };
+	recursion no;
+zone "example.com." IN {
+type primary;
+file "example.com.zone-x";
+};
+};
+
+view "hint" {
+zone "." IN {
+        type hint;
+        file "named.ca";
+};
+};
+
+view "rfc-zones"{
+include "/etc/named.rfc1912.zones";
+};
+include "/etc/named.root.key";
